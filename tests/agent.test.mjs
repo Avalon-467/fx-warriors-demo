@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import snapshot from '../public/rates.json' with {type:'json'};
 import {runFxAgent,validateReport} from '../lib/fx-agent.mjs';
-import {validateInput,parseFeed} from '../lib/fx-tools.mjs';
+import {validateInput,parseFeed,getPolicyNews} from '../lib/fx-tools.mjs';
 
 const input={base:'USD',quote:'SGD',horizon:10,scenarioBps:25,question:'Compare the models.'};
 const config={url:'https://model.example/v1',key:'test-key',model:'test-model'};
@@ -48,4 +48,8 @@ assert.throws(()=>validateInput({...input,scenarioBps:101}));
 assert.throws(()=>validateInput({...input,question:'x'.repeat(1501)}));
 assert.throws(()=>validateReport({},[]));
 assert.equal(parseFeed(feed.replace('https://www.federalreserve.gov/','https://evil.example/'),{id:'fed',name:'Federal Reserve',host:'www.federalreserve.gov'}).length,0);
+const redirectNews=await getPolicyNews('USD','SGD',async(url,init)=>{assert.equal(init.redirect,'manual','Cloudflare supports manual redirects, not error mode.');return new Response('',{status:302,headers:{location:'https://evil.example'}});});
+assert.ok(redirectNews.sources.length>0);
+assert.ok(redirectNews.sources.every(s=>s.retrieval_mode==='dated_official_snapshot'&&s.captured_at));
+assert.ok(redirectNews.coverage_gaps.some(s=>s.includes('cached on')));
 console.log('PASS: prompt/tool consistency, real tool protocol, report repair, citations, input boundaries, evidence gates, provider errors and call limits.');

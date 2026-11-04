@@ -1,0 +1,77 @@
+{
+  "captured_at": "2026-11-04T18:14:01.987Z",
+  "sources": [
+    {
+      "id": "fed_0",
+      "publisher": "Federal Reserve",
+      "title": "Federal Reserve issues FOMC statement",
+      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm",
+      "published_at": "2026-10-28T18:00:00.000Z",
+      "summary": "Federal Reserve issues FOMC statement",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    },
+    {
+      "id": "fed_1",
+      "publisher": "Federal Reserve",
+      "title": "Minutes of the Board's discount rate meetings on August 17, September 9, and September 16, 2026",
+      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261013a.htm",
+      "published_at": "2026-10-13T18:00:00.000Z",
+      "summary": "Minutes of the Board's discount rate meetings on August 17, September 9, and September 16, 2026",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    },
+    {
+      "id": "fed_2",
+      "publisher": "Federal Reserve",
+      "title": "Minutes of the Federal Open Market Committee, September 15-16, 2026",
+      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261007a.htm",
+      "published_at": "2026-10-07T18:00:00.000Z",
+      "summary": "Minutes of the Federal Open Market Committee, September 15-16, 2026",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    },
+    {
+      "id": "fed_3",
+      "publisher": "Federal Reserve",
+      "title": "Federal Reserve issues FOMC statement",
+      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm",
+      "published_at": "2026-09-16T18:00:00.000Z",
+      "summary": "Federal Reserve issues FOMC statement",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    },
+    {
+      "id": "ecb_0",
+      "publisher": "European Central Bank",
+      "title": "ECB wage tracker suggests slightly higher wage growth in first three quarters of 2027 compared with the full year of 2026",
+      "url": "https://www.ecb.europa.eu//press/pr/date/2026/html/ecb.pr261104~caf181d7ac.en.html",
+      "published_at": "2026-11-04T00:00:00.000Z",
+      "summary": "",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    },
+    {
+      "id": "ecb_1",
+      "publisher": "European Central Bank",
+      "title": "Boris Vujčić: Integrated, open and resilient: Europe’s strengths in a fragmenting world",
+      "url": "https://www.ecb.europa.eu//press/key/date/2026/html/ecb.sp.261102~70003226e9.en.html",
+      "published_at": "2026-11-02T09:30:00.000Z",
+      "summary": "",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    },
+    {
+      "id": "ecb_2",
+      "publisher": "European Central Bank",
+      "title": "Philip R. Lane: AI adoption in Europe",
+      "url": "https://www.ecb.europa.eu//press/key/date/2026/html/ecb.sp261030~08d9d540f0.en.html",
+      "published_at": "2026-10-30T16:10:00.000Z",
+      "summary": "",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    },
+    {
+      "id": "ecb_3",
+      "publisher": "European Central Bank",
+      "title": "Decisions taken by the Governing Council of the ECB (in addition to decisions setting interest rates)",
+      "url": "https://www.ecb.europa.eu//press/govcdec/otherdec/2026/html/ecb.gc261030~e40f864093.en.html",
+      "published_at": "2026-10-30T14:00:00.000Z",
+      "summary": "",
+      "evidence_scope": "Official RSS headline and summary; full article not retrieved."
+    }
+  ]
+}
