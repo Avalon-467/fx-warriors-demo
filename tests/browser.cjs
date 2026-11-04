@@ -1,0 +1,33 @@
+const {chromium}=require('/home/ubuntu/work2/ClawCross/node_modules/playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+(async()=>{
+ const browser=await chromium.launch({executablePath:'/home/ubuntu/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome',headless:true,args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:1440,height:1100},deviceScaleFactor:1});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+ await page.waitForFunction(()=>document.querySelector('#spot-rate').textContent!=='—');
+ await page.screenshot({path:'/tmp/fx-warriors-desktop.png',fullPage:true});
+ const initial=await page.locator('#spot-rate').textContent();
+ await page.locator('[data-base="EUR"][data-quote="USD"]').click();assert.notEqual(await page.locator('#spot-rate').textContent(),initial);
+ await page.locator('#swap').click();assert.equal(await page.locator('#base-currency').inputValue(),'USD');assert.equal(await page.locator('#quote-currency').inputValue(),'EUR');
+ await page.locator('[data-base="USD"][data-quote="SGD"]').click();
+ await page.locator('[data-days="10"]').click();assert.ok((await page.locator('#forecast-description').textContent()).includes('10 weekdays'));
+ await page.locator('[data-range="21"]').click();
+ await page.locator('#scenario-preview [data-sample="0"]').click();await page.waitForURL('**/#signals');
+ assert.equal(await page.locator('#impact-slider').inputValue(),'35');
+ await page.locator('#apply-signal').click();await page.waitForURL('**/#desk');assert.equal(await page.locator('#scenario-factor').textContent(),'+35 bps');
+ await page.locator('nav [data-view="signals"]').click();await page.locator('#headline').fill('The Federal Reserve does not expect a rate cut.');await page.locator('#analyse').click();assert.equal(await page.locator('#impact-slider').inputValue(),'0');
+ await page.locator('#headline').fill('<img src=x onerror=alert(1)> rate hike');await page.locator('#analyse').click();assert.equal(await page.locator('#detected-terms img').count(),0);
+ await page.locator('#clear-signal').click();
+ await page.locator('nav [data-view="budget"]').click();await page.locator('#budget-name').fill('Tuition <test>');await page.locator('#budget-amount').fill('7500');await page.locator('#budget-mode').selectOption('receive');await page.locator('#save-budget').click();assert.equal(await page.locator('.saved-row').count(),1);
+ await page.reload({waitUntil:'networkidle'});await page.waitForFunction(()=>document.querySelector('#budget-projection').textContent!=='—');assert.equal(await page.locator('.saved-row').count(),1);await page.locator('[data-load]').click();assert.equal(await page.locator('#budget-mode').inputValue(),'receive');assert.equal(await page.locator('#budget-amount').inputValue(),'7500');
+ await page.locator('#budget-amount').fill('-1');assert.equal(await page.locator('#save-budget').isDisabled(),true);assert.equal(await page.locator('#budget-projection').textContent(),'—');
+ await page.locator('#budget-amount').fill('7500');await page.locator('#clear-budgets').click();assert.equal(await page.locator('.saved-row').count(),0);
+ await page.locator('nav [data-view="method"]').click();assert.match(await page.locator('#backtest-count').textContent(),/historical forecasts/);
+ await page.locator('nav [data-view="desk"]').click();const downloadEvent=page.waitForEvent('download');await page.locator('#export').click();const download=await downloadEvent;assert.match(download.suggestedFilename(),/fx-warriors-USD-SGD/);
+ await page.route('https://api.frankfurter.dev/**',route=>route.abort());await page.locator('#refresh').click();await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);assert.match(await page.locator('#toast').textContent(),/snapshot/);assert.equal(await page.locator('#spot-rate').textContent(),initial);
+ await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);await page.locator('#toast').evaluate(el=>el.classList.remove('visible'));await page.screenshot({path:'/tmp/fx-warriors-mobile.png',fullPage:true});
+ for(const view of ['desk','signals','budget','method']){await page.locator('nav [data-view="'+view+'"]').click();await page.waitForTimeout(80);const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);assert.equal(overflow,false,'Overflow on mobile '+view);}
+ assert.deepEqual(errors,[]);await browser.close();console.log('PASS: currency switching/inversion, horizons/ranges, scenarios, negation/XSS handling, budgets/storage, validation, CSV download, API failure fallback, methodology, and four mobile layouts.');
+})().catch(e=>{console.error(e);process.exit(1)});
