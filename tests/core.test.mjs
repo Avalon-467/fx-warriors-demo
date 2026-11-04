@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {seriesFor,project,analyse,budget,backtest,businessDates} from '../dist/core.mjs';
-const snapshot=JSON.parse(fs.readFileSync(new URL('../dist/rates.json',import.meta.url)));
+import {seriesFor,project,analyse,budget,backtest,businessDates} from '../public/core.mjs';
+const snapshot=JSON.parse(fs.readFileSync(new URL('../public/rates.json',import.meta.url)));
 const series=seriesFor(snapshot.rows,'USD','SGD');
 assert.equal(series.length,64);
 assert.equal(series.at(-1).date,'2026-11-03');
