@@ -2,11 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'FX Warriors — AI Forecast Analyst',
-  description: 'Traditional FX models, real LLM tool calls and transparent policy evidence.',
-  other: {
-    "codex-preview": "development",
-  },
+  title: 'FX Warriors — Research Chat',
+  description: 'Ask about currencies, see charts and search the evidence in one conversation.',
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

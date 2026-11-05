@@ -5,7 +5,7 @@ const fs=require('node:fs');
  const browser=await chromium.launch({executablePath:'/home/ubuntu/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome',headless:true,args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width:1440,height:1100},deviceScaleFactor:1});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+ await page.goto('http://127.0.0.1:4173/#desk',{waitUntil:'networkidle'});
  await page.waitForFunction(()=>document.querySelector('#spot-rate').textContent!=='—');
  await page.screenshot({path:'/tmp/fx-warriors-desktop.png',fullPage:true});
  const initial=await page.locator('#spot-rate').textContent();

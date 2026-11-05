@@ -1,49 +1,70 @@
 # FX Warriors
 
-A public FX research demo for the AI6101 mini-project. The dashboard combines traditional numerical forecasts with a real, bounded LLM tool-calling agent served by a Cloudflare Worker through Sites.
+A conversation-first FX research demo for the AI6101 mini-project. Start with a question; the agent can display an exchange-rate chart, compare traditional forecasts, search the web and read cited sources directly in the conversation.
 
 Public site: https://fx-warriors-lab.cloudlessmarigold1.chatgpt.site
 
-## The agent
+## Experience
 
-1. The server retrieves ECB reference rates, falling back to an explicitly dated snapshot if needed.
-2. It computes traditional forecast outputs and injects them into the initial LLM prompt: pair, quote convention, spot/date, drift, volatility, central rate, 80% interval, user scenario and limitations.
-3. The LLM issues native `tool_calls`. The server executes an allowlist of tools and sends their outputs back to the model.
-4. A structured report shows the numerical anchor, interpretation, source citations, missing evidence and actual tool activity.
+- The homepage opens to a message box, with optional example questions.
+- Ask in English or Chinese. Follow-ups carry the recent conversation and current currency pair.
+- Charts appear only when requested or selected by the agent. Each point comes from dated reference observations or the traditional model, not an LLM-generated series.
+- Web research returns clickable source cards and inline citations. Cards distinguish search excerpts, page excerpts, official feeds and dated caches.
+- Expand research activity to inspect actual tool arguments and outputs.
+- Stop an answer or start a new chat. Conversations remain in page memory and disappear on reload; saved budget data is separate.
+- The forecast desk, scenario lab, budget planner, CSV export and model card remain available in the navigation.
 
-| Tool | Output |
+Example requests:
+
+> Show USD/SGD over the last three months.
+>
+> Search the latest policy affecting EUR/USD and give me sources.
+>
+> 画一下美元兑日元的走势，再比较未来10天的模型预测。
+>
+> Read the official statement behind that claim. Sources only, no chart.
+
+## Agent and tools
+
+For each message, the server computes traditional FX outputs and injects them into the initial prompt: pair, reference date, spot, drift, volatility, central rate, model interval and assumptions. The same context is available through a native tool. The LLM decides which additional tools the message requires.
+
+| Tool | Result |
 | --- | --- |
-| `get_traditional_forecast` | The same trusted numerical context used in the initial prompt |
-| `compare_traditional_models` | Shrunk drift, no-change and mean-reversion forecasts, plus descriptive rolling historical MAE |
-| `get_official_policy_news` | Official Federal Reserve / ECB RSS headlines and summaries, dates, URLs and coverage gaps |
-| `present_fx_analysis` | Structured final analysis, accepted only after successful forecast and policy-tool inspection |
+| `get_traditional_forecast` | Trusted numerical model output; optional currency/horizon changes |
+| `show_fx_chart` | Interactive historical curve, optionally with an illustrative forecast and 80% interval |
+| `compare_traditional_models` | Shrunk drift, no-change and mean-reversion forecasts plus descriptive rolling MAE |
+| `search_web` | Query-specific Tavily web/news search with URLs, excerpts and available publication dates |
+| `read_source` | Bounded page extraction for a source ID already returned during this turn |
+| `get_official_policy_news` | Supplementary fixed Fed/ECB RSS evidence, with cache/coverage labels |
+| `present_fx_answer` | Concise conversational answer, validated citation IDs and follow-up suggestions |
 
-The model connection uses the OpenAI-compatible endpoint configured for ClawCrossHub. Credentials are supplied as server runtime secrets. The model name is the provider's configured identifier; the app does not independently verify the underlying model identity. There is no simulated AI fallback. Provider failures, incomplete responses and rate limits are shown explicitly. Incomplete tool arguments can be repaired within a maximum of four model calls per analysis. Each call has a 55-second timeout and a 4,096-token output limit.
+The chat endpoint is `POST /api/chat`; `GET /api/chat` returns connection status. The older `/api/agent` endpoint remains available for the previous structured report workflow. Native `tool_calls` are sent back to the model with real tool outputs. Provider failures remain explicit; no simulated AI or fabricated search response is substituted.
+
+A chat turn has at most six model calls, two searches and two page reads. The model gets up to eight prior user/assistant messages. Current messages and history entries are bounded to 2,000 characters each. Tool names, currency inputs, source IDs and external research endpoints are validated server-side.
+
+## Search
+
+Search and extraction use Tavily's documented [keyless access](https://docs.tavily.com/documentation/keyless), which supports limited demo use without another credential. This is real keyword web search, beyond the fixed central-bank feeds. An optional server-side `FX_SEARCH_API_KEY` switches to an account's limits without a code change. Shared provider limits may temporarily make search unavailable; the response and research activity show the failure.
+
+Search requests send focused research queries. Page reads accept only HTTPS source URLs returned by a research tool in the same turn. The Worker calls the fixed Tavily API rather than exposing a general-purpose fetch proxy. Source text is treated as untrusted evidence, never as instructions. Search excerpts are not claimed as full-page verification; extracted content is capped at 8,000 characters.
 
 ## Models and data
 
-The bundled snapshot contains 64 ECB reference observations from 2026-08-06 through 2026-11-03. All currency crosses use the same daily EUR table. Six currencies are available: USD, SGD, EUR, GBP, CNY and JPY.
+Supported currencies: USD, SGD, EUR, GBP, CNY and JPY. The server fetches ECB reference history and falls back to a labelled snapshot of 64 observations from 2026-08-06 through 2026-11-03. All cross rates use the same daily EUR table.
 
 Source: https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml
 
-Daily drift is 25% of the mean of the latest 20 log returns. Volatility is the sample standard deviation of up to 60 returns. The 80% normal-return interval is uncalibrated. The comparison tool also evaluates no-change and convergence toward the trailing 20-observation mean. The rolling evaluation is short and overlapping, so it does not establish future predictive performance. Dates skip weekends, not all market holidays.
+Daily drift is 25% of the mean of the latest 20 log returns. Volatility is the sample standard deviation of up to 60 returns. The 80% normal-return interval is uncalibrated. Mean reversion converges toward the trailing 20-observation mean. The short, overlapping rolling evaluation does not establish future predictive performance. Forecasts cover 5, 10 or 20 weekdays and skip weekends, not all market holidays. Available history is about 90 calendar days.
 
-The AI analyst retrieves current ECB history on the server. The forecast desk starts with the bundled snapshot and offers a separate Frankfurter refresh. Their observation dates can differ; the report labels its own date and source mode. RSS evidence covers the Fed and ECB only, and does not retrieve full articles. If a feed fails, the tool uses official RSS captured on 2026-11-04 and explicitly identifies the cache date and possible missing updates. Unconnected currency feeds and failed retrievals are disclosed. Headlines do not establish the contents of a policy decision. Source requests use manual redirects and reject non-success responses, preserving the URL allowlist and Cloudflare compatibility.
+The forecast desk initially uses the bundled snapshot and offers a Frankfurter refresh; chat retrieves data on the server and labels its own reference date. Their dates may differ. The local scenario lab remains an editable keyword-based hypothetical adjustment. Neither that adjustment nor the quantitative forecast is learned from LLM news interpretation.
 
-The separate local scenario lab remains a keyword preview with an editable basis-point assumption. That adjustment is neither estimated by the LLM nor learned from news. The LLM interprets evidence and does not overwrite the classical numerical forecasts.
+Fixed Fed/ECB feeds remain a supplementary tool. If those feeds fail, official RSS captured on 2026-11-04 is used with an explicit cache notice. The web-search tool can find sources beyond those feeds, including other central banks. Missing evidence and retrieval failures are disclosed.
 
-## Other features
+## Development
 
-- Five-, ten- and twenty-weekday forecast horizons; selectable crosses and inversion.
-- Interactive history/forecast charts and CSV export.
-- Fee-aware send/receive budget planning with browser-local saved plans and deletion controls.
-- Model methodology, descriptive rolling evaluation and responsive mobile layouts.
+Use Node 22.13 or newer and the supplied Sites dependency/build workflow. The application uses Vinext and Cloudflare Workers; the source hosting manifest preserves the existing public Site and its D1 binding.
 
-## Development and verification
-
-Use Node 22.13 or newer. Install dependencies using the Sites dependency helper. `npm run build` builds the Vinext/Cloudflare application. For hosted preparation, use the Sites `build-site.mjs` and `site-workflow.mjs` helpers.
-
-After building, initialize the local D1 database:
+After building, initialize the local D1 database once:
 
 ```sh
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_clumsy_silver_fox.sql
@@ -55,26 +76,26 @@ Tests:
 ```sh
 node tests/core.test.mjs
 node tests/agent.test.mjs
+node tests/chat.test.mjs
 node tests/quota.test.mjs
 node tests/browser.cjs
-node tests/agent-browser.cjs
+node tests/chat-browser.cjs
 ```
 
-The browser tests use the workspace Playwright installation. Agent browser checks replay a recorded successful real response at `/tmp/fx-real-agent-events.ndjson`; they do not spend API credits. Backend agent tests use mocked provider responses to verify prompt/tool consistency, malformed-report repair, source filtering, evidence requirements and bounded failures. A real provider smoke test and a deployed-route check complement those tests.
+Browser tests use the workspace Playwright installation. Chat UI tests replay a recorded successful real response at `/tmp/fx-chat-real-events.ndjson` to verify rendering without spending model credits. Backend fixtures check model/context consistency, dynamic chart/search decisions, follow-up history, source extraction, citation filtering, input bounds, network targets and failures. Real provider and public Cloudflare smoke tests complement those checks.
 
-Runtime configuration uses Sites environment variables:
+## Runtime configuration and privacy
 
-| Name | Secret | Purpose |
+| Variable | Secret | Purpose |
 | --- | --- | --- |
-| `FX_LLM_BASE_URL` | Yes | Configured OpenAI-compatible base URL |
-| `FX_LLM_API_KEY` | Yes | Provider credential, never exposed to the browser |
-| `FX_LLM_MODEL` | Yes | Provider model identifier; displayed by the status endpoint |
-| `FX_MAX_DAILY_CALLS` | No | Shared UTC daily provider-call cap, default 60, maximum 120 |
+| `FX_LLM_BASE_URL` | Yes | ClawCrossHub's configured OpenAI-compatible endpoint |
+| `FX_LLM_API_KEY` | Yes | Provider credential; server-only |
+| `FX_LLM_MODEL` | Yes | Configured model identifier; it can be returned by the status endpoint |
+| `FX_SEARCH_API_KEY` | Yes, optional | Tavily API credential; omitted for keyless demo access |
+| `FX_MAX_DAILY_CALLS` | No | Shared UTC daily model-call cap, default 60 and maximum 120 |
 
-`DB` is a D1 binding for atomic usage counters. The hosted migration is in `drizzle/`; runtime secrets do not belong in source, assets or the hosting manifest. The demo also limits each visitor to six analysis requests per UTC hour. Cancellation stops subsequent model calls and aborts an active fetch where supported; an already-started provider call may still be charged.
+The app also limits chat to twelve requests per visitor per UTC hour and sixty search/extraction calls per UTC day. D1 stores atomic counters with daily hashed caller identifiers, not conversations or reports. Requests count toward limits even if their provider subsequently fails. A provider call already started may still be charged after cancellation.
 
-## Privacy and publication
+Messages, recent conversation context and public numerical data go to the configured LLM. Research queries and selected source URLs go to Tavily. Saved budget names and amounts are not included. Hosting and model/search providers process request data under their own policies. No API keys are included in browser assets or source control.
 
-Questions, supplied headlines and public numerical context are sent to the configured model provider only when an analysis is started. Saved budget names and amounts stay in browser local storage and are not included. The application stores usage counters with daily hashed caller identifiers, not question or report histories. The model and hosting providers may process request data under their own policies.
-
-The existing public Sites identity is preserved in `.openai/hosting.json`. Source and its matching Worker build are committed, pushed and packaged through the Sites source workflow before publication. Public access was explicitly requested by the user.
+Publication uses the existing Sites source workflow: build, commit, push and package matching source/output, then save and deploy to the same public URL.

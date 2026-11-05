@@ -12,7 +12,15 @@ const pct=(n,d=2)=>(n>=0?'+':'')+(n*100).toFixed(d)+'%';
 const dateLabel=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 let toastTimer;
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),4500);}
-function view(name){const current=['desk','signals','budget','method','agent'].includes(name)?name:'desk';$$('.view').forEach(el=>el.hidden=el.id!=='view-'+current);$$('.nav-link').forEach(el=>{el.classList.toggle('active',el.dataset.view===current);if(el.dataset.view===current)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});$('#breadcrumb').textContent={desk:'Forecast desk',agent:'AI analyst',signals:'Signals lab',budget:'Budget planner',method:'Behind the forecast'}[current];document.title={desk:'Forecast Desk',agent:'AI Analyst',signals:'Signals Lab',budget:'Budget Planner',method:'Behind the Forecast'}[current]+' — FX Warriors';if(current==='desk'&&state.model)requestAnimationFrame(renderChart);if(current==='budget'&&state.model)renderBudget();}
+function view(name){
+ const current=['desk','signals','budget','method','agent'].includes(name)?name:'agent';
+ document.body.classList.toggle('chat-active',current==='agent');
+ $$('.view').forEach(el=>el.hidden=el.id!=='view-'+current);
+ $$('.nav-link').forEach(el=>{el.classList.toggle('active',el.dataset.view===current);if(el.dataset.view===current)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
+ $('#breadcrumb').textContent={desk:'Forecast desk',agent:'Research chat',signals:'Signals lab',budget:'Budget planner',method:'Behind the forecast'}[current];
+ document.title={desk:'Forecast Desk',agent:'Research Chat',signals:'Signals Lab',budget:'Budget Planner',method:'Behind the Forecast'}[current]+' — FX Warriors';
+ if(current==='desk'&&state.model)requestAnimationFrame(renderChart);if(current==='budget'&&state.model)renderBudget();
+}
 window.addEventListener('hashchange',()=>{view(location.hash.slice(1));window.scrollTo({top:0,behavior:'instant'});});
 $('#info-button').onclick=()=>location.hash='method';
 for(const sel of ['#base-currency','#quote-currency','#signal-currency'])$(sel).innerHTML=CURRENCIES.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
