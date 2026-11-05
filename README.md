@@ -1,6 +1,6 @@
-# FX Warriors
+# FX Warriors — AI6101 Mini-Project
 
-A conversation-first FX research demo for the AI6101 mini-project. Start with a question; the agent can display an exchange-rate chart, compare traditional forecasts, search the web and read cited sources directly in the conversation.
+A student team research demo by the FX Warriors team for the AI6101 mini-project, exploring how conversational AI, web research and traditional FX models work together. Start with a question; the agent can display an exchange-rate chart, compare traditional forecasts, search the web and read cited sources directly in the conversation.
 
 Public site: https://fx-warriors-lab.cloudlessmarigold1.chatgpt.site
 

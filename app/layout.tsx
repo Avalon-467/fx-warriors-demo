@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'FX Warriors — Research Chat',
-  description: 'Ask about currencies, see charts and search the evidence in one conversation.',
+  title: 'FX Warriors — AI6101 Mini-Project',
+  description: 'An AI6101 student team project combining conversational AI, web research and traditional foreign-exchange models. Explore charts and cited sources with FX Warriors.',
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

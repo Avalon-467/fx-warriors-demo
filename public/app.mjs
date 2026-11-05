@@ -18,7 +18,7 @@ function view(name){
  $$('.view').forEach(el=>el.hidden=el.id!=='view-'+current);
  $$('.nav-link').forEach(el=>{el.classList.toggle('active',el.dataset.view===current);if(el.dataset.view===current)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
  $('#breadcrumb').textContent={desk:'Forecast desk',agent:'Research chat',signals:'Signals lab',budget:'Budget planner',method:'Behind the forecast'}[current];
- document.title={desk:'Forecast Desk',agent:'Research Chat',signals:'Signals Lab',budget:'Budget Planner',method:'Behind the Forecast'}[current]+' — FX Warriors';
+ document.title={desk:'Forecast Desk',agent:'Research Chat',signals:'Signals Lab',budget:'Budget Planner',method:'Behind the Forecast'}[current]+' — FX Warriors · AI6101 Mini-Project';
  if(current==='desk'&&state.model)requestAnimationFrame(renderChart);if(current==='budget'&&state.model)renderBudget();
 }
 window.addEventListener('hashchange',()=>{view(location.hash.slice(1));window.scrollTo({top:0,behavior:'instant'});});
