@@ -1,13 +1,13 @@
 import {env} from 'cloudflare:workers';
 import {runFxChat,validateChat} from '../../../lib/fx-chat.mjs';
-import {useQuota,callerHash} from '../../../lib/fx-quota';
+import {useQuota,callerHash,isSameOrigin} from '../../../lib/fx-quota';
 export const dynamic='force-dynamic';
 type RuntimeEnv=Cloudflare.Env & {FX_LLM_API_KEY?:string;FX_LLM_BASE_URL?:string;FX_LLM_MODEL?:string;FX_MAX_DAILY_CALLS?:string;FX_SEARCH_API_KEY?:string};
 const runtime=()=>env as RuntimeEnv;
 export function GET(){const e=runtime();return Response.json({configured:!!(e.FX_LLM_API_KEY&&e.FX_LLM_BASE_URL&&e.FX_LLM_MODEL&&e.DB),model:e.FX_LLM_MODEL||null,search:{provider:'Tavily',mode:e.FX_SEARCH_API_KEY?'keyed':'keyless',available:true},max_model_calls:6},{headers:{'Cache-Control':'no-store'}});}
 export async function POST(request:Request){
  const e=runtime();if(!e.FX_LLM_API_KEY||!e.FX_LLM_BASE_URL||!e.FX_LLM_MODEL||!e.DB)return Response.json({error:'The model connection is unavailable.'},{status:503});
- const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return Response.json({error:'Cross-origin requests are not supported.'},{status:403});
+ if(!isSameOrigin(request))return Response.json({error:'Cross-origin requests are not supported.'},{status:403});
  if(!request.headers.get('content-type')?.includes('application/json'))return Response.json({error:'Use application/json.'},{status:415});
  if(Number(request.headers.get('content-length')||0)>64000)return Response.json({error:'The conversation is too long. Start a new chat.'},{status:413});
  let input;try{const body=await request.text();if(new TextEncoder().encode(body).length>64000)return Response.json({error:'The conversation is too long. Start a new chat.'},{status:413});input=validateChat(JSON.parse(body));}catch(error){return Response.json({error:error instanceof Error?error.message:'Invalid message.'},{status:400});}

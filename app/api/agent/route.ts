@@ -1,14 +1,14 @@
 import { env } from 'cloudflare:workers';
 import { runFxAgent } from '../../../lib/fx-agent.mjs';
 import { validateInput } from '../../../lib/fx-tools.mjs';
-import { useQuota, callerHash } from '../../../lib/fx-quota';
+import { useQuota, callerHash, isSameOrigin } from '../../../lib/fx-quota';
 export const dynamic='force-dynamic';
 type RuntimeEnv=Cloudflare.Env & {FX_LLM_API_KEY?:string;FX_LLM_BASE_URL?:string;FX_LLM_MODEL?:string;FX_MAX_DAILY_CALLS?:string};
 const runtime=()=>env as RuntimeEnv;
 export function GET(){const e=runtime();return Response.json({configured:!!(e.FX_LLM_API_KEY&&e.FX_LLM_BASE_URL&&e.FX_LLM_MODEL&&e.DB),model:e.FX_LLM_MODEL||null,max_model_calls:4,privacy:'Questions and supplied headlines are sent to the configured LLM when you run an analysis. Saved budgets are not sent.',tools:['get_traditional_forecast','compare_traditional_models','get_official_policy_news'],public_demo_daily_call_cap:Math.min(120,Math.max(4,Number(e.FX_MAX_DAILY_CALLS)||60))},{headers:{'Cache-Control':'no-store'}});}
 export async function POST(request:Request){
  const e=runtime();if(!e.FX_LLM_API_KEY||!e.FX_LLM_BASE_URL||!e.FX_LLM_MODEL||!e.DB)return Response.json({error:'The server-side LLM is not configured yet.'},{status:503});
- const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return Response.json({error:'Cross-origin requests are not supported.'},{status:403});
+ if(!isSameOrigin(request))return Response.json({error:'Cross-origin requests are not supported.'},{status:403});
  if(!request.headers.get('content-type')?.includes('application/json'))return Response.json({error:'Use application/json.'},{status:415});
  if(Number(request.headers.get('content-length')||0)>12000)return Response.json({error:'Request too large.'},{status:413});
  let input;try{const raw=await request.text();if(raw.length>12000)return Response.json({error:'Request too large.'},{status:413});input=validateInput(JSON.parse(raw));}catch(error){return Response.json({error:error instanceof Error?error.message:'Invalid request.'},{status:400});}
