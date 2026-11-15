@@ -63,7 +63,7 @@ Fixed Fed/ECB feeds remain a supplementary tool. If those feeds fail, official R
 
 ## AI6101 Responsible AI alignment
 
-See [docs/AI6101-system-design.md](docs/AI6101-system-design.md) for the complete system design mapped to the AI6101 Introduction to AI and AI Ethics coursework specification across all three Responsible AI Practices:
+See [FX-Warriors-final-report.docx](FX-Warriors-final-report.docx) (coursework deliverable, A4 Arial 10pt) and [docs/AI6101-system-design.md](docs/AI6101-system-design.md) for the complete system design mapped to the AI6101 Introduction to AI and AI Ethics coursework specification across all three Responsible AI Practices:
 
 1. **Explainability & interpretability**: closed-form projection formulas, rolling historical baseline comparison, inspectable tool calls, and inline `[sN]` provenance cards.
 2. **Fairness & equal access**: symmetric EUR cross-rate calculation across all six currencies, explicit disclosure of central-bank RSS coverage gaps, two-sided pair search guidance, and browser-adaptive English/Chinese parity.
