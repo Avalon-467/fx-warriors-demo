@@ -4,7 +4,8 @@ const fs=require('node:fs');
 (async()=>{
  const recorded=fs.readFileSync('/tmp/fx-chat-real-events.ndjson','utf8').trim().split('\n').map(s=>JSON.parse(s));
  const real=recorded.find(e=>e.type==='result');assert.ok(real?.chart&&real.sources.length,'A successful real chart/search recording is required.');
- const browser=await chromium.launch({executablePath:'/home/ubuntu/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome',headless:true,args:['--no-sandbox']});
+ const executablePath=process.env.PLAYWRIGHT_CHROME||['/home/ubuntu/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome','/usr/bin/google-chrome','/usr/bin/chromium'].find(p=>fs.existsSync(p));
+ const browser=await chromium.launch({...(executablePath?{executablePath}:{}),headless:true,args:['--no-sandbox']});
  try{
  const page=await browser.newPage({viewport:{width:1440,height:1050}}),errors=[],posts=[];let mode='combined';
  page.on('pageerror',e=>errors.push(e.message));

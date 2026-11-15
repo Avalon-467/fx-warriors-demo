@@ -7,6 +7,7 @@ Public site: https://fx-warriors-lab.cloudlessmarigold1.chatgpt.site
 ## Experience
 
 - The homepage opens to a message box, with optional example questions.
+- **Browser-adaptive bilingual UI (`EN` / `中文`)**: automatically detects `navigator.languages` / `navigator.language` (with live `languagechange` support and an instant topbar toggle), and forwards the UI locale preference to `/api/chat`.
 - Ask in English or Chinese. Follow-ups carry the recent conversation and current currency pair.
 - Charts appear only when requested or selected by the agent. Each point comes from dated reference observations or the traditional model, not an LLM-generated series.
 - Web research returns clickable source cards and inline citations. Cards distinguish search excerpts, page excerpts, official feeds and dated caches.
@@ -60,6 +61,14 @@ The forecast desk initially uses the bundled snapshot and offers a Frankfurter r
 
 Fixed Fed/ECB feeds remain a supplementary tool. If those feeds fail, official RSS captured on 2026-11-04 is used with an explicit cache notice. The web-search tool can find sources beyond those feeds, including other central banks. Missing evidence and retrieval failures are disclosed.
 
+## AI6101 Responsible AI alignment
+
+See [docs/AI6101-system-design.md](docs/AI6101-system-design.md) for the complete system design mapped to the AI6101 Introduction to AI and AI Ethics coursework specification across all three Responsible AI Practices:
+
+1. **Explainability & interpretability**: closed-form projection formulas, rolling historical baseline comparison, inspectable tool calls, and inline `[sN]` provenance cards.
+2. **Fairness & equal access**: symmetric EUR cross-rate calculation across all six currencies, explicit disclosure of central-bank RSS coverage gaps, two-sided pair search guidance, and browser-adaptive English/Chinese parity.
+3. **Privacy preservation**: browser-local `localStorage` budget planning, ephemeral in-memory chat, and daily-salted SHA-256 hashed rate limiting.
+
 ## Development
 
 Use Node 22.13 or newer and the supplied Sites dependency/build workflow. The application uses Vinext and Cloudflare Workers; the source hosting manifest preserves the existing public Site and its D1 binding.
@@ -78,8 +87,10 @@ node tests/core.test.mjs
 node tests/agent.test.mjs
 node tests/chat.test.mjs
 node tests/quota.test.mjs
+node tests/i18n.test.mjs
 node tests/browser.cjs
 node tests/chat-browser.cjs
+node tests/i18n-browser.mjs
 ```
 
 Browser tests use the workspace Playwright installation. Chat UI tests replay a recorded successful real response at `/tmp/fx-chat-real-events.ndjson` to verify rendering without spending model credits. Backend fixtures check model/context consistency, dynamic chart/search decisions, follow-up history, source extraction, citation filtering, input bounds, network targets and failures. Real provider and public Cloudflare smoke tests complement those checks.

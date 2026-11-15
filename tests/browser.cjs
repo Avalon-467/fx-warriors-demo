@@ -2,7 +2,8 @@ const {chromium}=require('/home/ubuntu/work2/ClawCross/node_modules/playwright')
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 (async()=>{
- const browser=await chromium.launch({executablePath:'/home/ubuntu/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome',headless:true,args:['--no-sandbox']});
+ const executablePath=process.env.PLAYWRIGHT_CHROME||['/home/ubuntu/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome','/usr/bin/google-chrome','/usr/bin/chromium'].find(p=>fs.existsSync(p));
+ const browser=await chromium.launch({...(executablePath?{executablePath}:{}),headless:true,args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width:1440,height:1100},deviceScaleFactor:1});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:4173/#desk',{waitUntil:'networkidle'});

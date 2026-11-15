@@ -1,66 +1,236 @@
 import {mountAgent} from './agent-ui.mjs';
-import {CURRENCIES,PAIRS,SCENARIOS,seriesFor,stats,project,analyse,budget,backtest} from './core.mjs';
+import {CURRENCIES,PAIRS,seriesFor,project,analyse,budget,backtest} from './core.mjs';
+import {t,getLang,toggleLang,onLangChange,initAutoLanguage,applyStaticI18n,getScenarios,formatDateShort,localizeBudgetError} from './i18n.mjs';
+
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const icons={grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',spark:'<path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7L12 3Z"/><path d="m20 2 .5 1.5L22 4l-1.5.5L20 6l-.5-1.5L18 4l1.5-.5Z"/>',wallet:'<path d="M20 8V5H5a2 2 0 0 0 0 4h16v11H5a2 2 0 0 1-2-2V7"/><path d="M21 12h-6v5h6"/><path d="M17 14.5h.1"/>',layers:'<path d="m12 3 10 5-10 5L2 8l10-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/>',shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>',refresh:'<path d="M20 7a9 9 0 0 0-15-2L2 8m0-5v5h5m-3 9a9 9 0 0 0 15 2l3-3m0 5v-5h-5"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 15v5h16v-5"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>',swap:'<path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/>',focus:'<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><circle cx="12" cy="12" r="4"/>',arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>',chart:'<path d="M3 3v18h18M7 14l4-5 4 3 6-7"/>',bank:'<path d="m3 8 9-5 9 5H3Zm2 3v7m7-7v7m7-7v7M2 21h20"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',bookmark:'<path d="M5 3h14v18l-7-4-7 4V3Z"/>'};
 const icon=name=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(icons[name]||icons.chart)+'</svg>';
 $$('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const state={data:null,base:'USD',quote:'SGD',horizon:5,range:60,impact:0,headline:'',model:null,series:[],analysis:null,live:false,saved:[]};
+const state={data:null,base:'USD',quote:'SGD',horizon:5,range:60,impact:0,headline:'',model:null,series:[],analysis:null,analysisMode:'awaiting',analysisCurrency:'USD',live:false,saved:[],view:'agent'};
 const money=(n,c)=>new Intl.NumberFormat('en-US',{style:'currency',currency:c,currencyDisplay:'code',maximumFractionDigits:c==='JPY'?0:2}).format(n);
 const rate=n=>Number(n).toFixed(n>=20?3:4);
 const pct=(n,d=2)=>(n>=0?'+':'')+(n*100).toFixed(d)+'%';
-const dateLabel=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+
+initAutoLanguage();
+applyStaticI18n();
+
 let toastTimer;
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),4500);}
+
+function renderLoadingPlaceholders(){
+ if(state.data)return;
+ $('#source-status').innerHTML='<span class="status-dot"></span>'+esc(t('status.loadingRef'));
+ $('#rate-description').textContent=t('desk.rateDescDefault');
+ $('#chart-source-date').textContent=t('status.loadingEllipsis');
+ $('#forecast-description').textContent=t('status.loadingForecast');
+ $('#scenario-factor').textContent=t('desk.none');
+ $('#forecast-footnote').textContent=t('desk.footnoteDefault');
+ $('#data-detail').textContent=t('status.loadingDataProvenance');
+ $('#backtest-count').textContent=t('method.evalCountLoading');
+ $('#footer-source').textContent=t('desk.footerSourceDefault');
+}
+
 function view(name){
  const current=['desk','signals','budget','method','agent'].includes(name)?name:'agent';
+ state.view=current;
  document.body.classList.toggle('chat-active',current==='agent');
  $$('.view').forEach(el=>el.hidden=el.id!=='view-'+current);
  $$('.nav-link').forEach(el=>{el.classList.toggle('active',el.dataset.view===current);if(el.dataset.view===current)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
- $('#breadcrumb').textContent={desk:'Forecast desk',agent:'Research chat',signals:'Signals lab',budget:'Budget planner',method:'Behind the forecast'}[current];
- document.title={desk:'Forecast Desk',agent:'Research Chat',signals:'Signals Lab',budget:'Budget Planner',method:'Behind the Forecast'}[current]+' — FX Warriors · AI6101 Mini-Project';
- if(current==='desk'&&state.model)requestAnimationFrame(renderChart);if(current==='budget'&&state.model)renderBudget();
+ $('#breadcrumb').textContent=t('nav.'+current);
+ document.title=t('titles.'+current)+t('titleSuffix');
+ if(current==='desk'&&state.model)requestAnimationFrame(renderChart);
+ if(current==='budget'&&state.model)renderBudget();
 }
+
 window.addEventListener('hashchange',()=>{view(location.hash.slice(1));window.scrollTo({top:0,behavior:'instant'});});
 $('#info-button').onclick=()=>location.hash='method';
+$('#lang-toggle').onclick=()=>toggleLang();
 for(const sel of ['#base-currency','#quote-currency','#signal-currency'])$(sel).innerHTML=CURRENCIES.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
-function setPair(base,quote){if(base===quote||!CURRENCIES.includes(base)||!CURRENCIES.includes(quote))return;state.base=base;state.quote=quote;state.impact=0;state.headline='';state.analysis=null;$('#signal-currency').value=base;resetAnalysis();render();}
+function setPair(base,quote){if(base===quote||!CURRENCIES.includes(base)||!CURRENCIES.includes(quote))return;state.base=base;state.quote=quote;state.impact=0;state.headline='';state.analysis=null;state.analysisMode='awaiting';$('#signal-currency').value=base;resetAnalysis();render();}
 $('#base-currency').onchange=e=>setPair(e.target.value,state.quote===e.target.value?state.base:state.quote);
 $('#quote-currency').onchange=e=>setPair(state.base===e.target.value?state.quote:state.base,e.target.value);
 $('#swap').onclick=()=>setPair(state.quote,state.base);
 $('#chart-range').onclick=e=>{const b=e.target.closest('[data-range]');if(!b)return;state.range=b.dataset.range==='all'?'all':Number(b.dataset.range);$$('#chart-range button').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b));});renderChart();};
 $('#horizon-buttons').onclick=e=>{const b=e.target.closest('[data-days]');if(!b)return;state.horizon=Number(b.dataset.days);render();};
+
 function sparkline(values,color){const min=Math.min(...values),max=Math.max(...values),span=max-min||1;const pts=values.map((x,i)=>(i/(values.length-1)*57).toFixed(1)+','+(22-(x-min)/span*19).toFixed(1)).join(' ');return '<svg viewBox="0 0 58 24" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1.3"/></svg>';}
-function renderWatch(){const symbols={USD:'$',EUR:'€',GBP:'£',SGD:'S$',CNY:'¥',JPY:'¥'};$('#watchlist').innerHTML=PAIRS.map(([b,q])=>{const s=seriesFor(state.data.rows,b,q),last=s.at(-1).rate,change=last/s.at(-2).rate-1;return '<button class="watch-item '+(b===state.base&&q===state.quote?'active':'')+'" data-base="'+b+'" data-quote="'+q+'" aria-label="View '+b+' to '+q+'" aria-pressed="'+(b===state.base&&q===state.quote)+'"><div class="watch-top"><span class="currency-icon">'+symbols[b]+'</span>'+b+' / '+q+'<span class="watch-dot"></span></div><div class="watch-rate">'+rate(last)+'</div><div class="watch-bottom"><span class="watch-change '+(change>=0?'positive':'negative')+'">'+(change>=0?'↗ ':'↘ ')+pct(change)+'</span>'+sparkline(s.slice(-18).map(x=>x.rate),change>=0?'#77965e':'#b4937c')+'</div></button>';}).join('');$$('.watch-item').forEach(b=>b.onclick=()=>setPair(b.dataset.base,b.dataset.quote));}
-function render(){if(!state.data)return;state.series=seriesFor(state.data.rows,state.base,state.quote);state.model=project(state.series,state.horizon,state.impact);const m=state.model,last=state.series.at(-1),change=last.rate/state.series.at(-2).rate-1;$('#base-currency').value=state.base;$('#quote-currency').value=state.quote;renderWatch();$('#spot-rate').textContent=rate(m.spot);$('#rate-change').textContent=(change>=0?'↗ ':'↘ ')+pct(change)+' last session';$('#rate-change').className='rate-change '+(change>=0?'positive':'negative');$('#rate-description').textContent=state.quote+' per 1 '+state.base+' · Daily reference rate';$('#forecast-price').textContent=rate(m.last.rate);const move=m.last.rate/m.spot-1;$('#forecast-description').textContent=pct(move)+' projected over '+state.horizon+' weekdays';$('#lower-rate').textContent=rate(m.last.lower);$('#upper-rate').textContent=rate(m.last.upper);$('#trend-factor').textContent=(m.drift>=0?'↗ Upward':'↘ Downward')+' drift';$('#volatility-factor').textContent=(m.sigma*Math.sqrt(252)*100).toFixed(2)+'%';$('#scenario-factor').textContent=state.impact?((state.impact>0?'+':'')+state.impact+' bps'):'None';$('#forecast-footnote').textContent=state.impact?'Includes an assumed '+pct(state.impact/10000)+' terminal impact. This is a scenario, not an estimated news effect.':'Based on recent daily changes. The interval is an uncalibrated model estimate.';$$('#horizon-buttons button').forEach(b=>{const active=Number(b.dataset.days)===state.horizon;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});$('#chart-source-date').textContent='As of '+dateLabel(last.date)+' '+last.date.slice(0,4);$('#source-status').innerHTML='<span class="status-dot"></span>'+esc(state.live?'Refreshed reference data':'ECB snapshot · '+dateLabel(last.date));$('#footer-source').textContent='Data: '+last.date+' · Illustrative forecasts · Not investment advice';$('#data-detail').textContent=state.data.rows.length+' observations · '+state.data.rows[0].date+' to '+state.data.rows.at(-1).date+' · '+(state.live?'Fetched from Frankfurter':'Bundled ECB snapshot');$('#quick-base-label').textContent=state.base;$('#quick-base').textContent=state.base;$('#budget-base').textContent=state.base;$('#budget-quote').textContent=state.quote;$('#fee-currency').textContent=state.base;$('#budget-horizon').textContent=state.horizon+'-day outlook';$('#impact-pair').textContent=state.base+'/'+state.quote;renderChart();renderQuick();renderBudget();renderBacktest();window.dispatchEvent(new Event('fx-context-changed'));}
+function renderWatch(){const symbols={USD:'$',EUR:'€',GBP:'£',SGD:'S$',CNY:'¥',JPY:'¥'};$('#watchlist').innerHTML=PAIRS.map(([b,q])=>{const s=seriesFor(state.data.rows,b,q),last=s.at(-1).rate,change=last/s.at(-2).rate-1;return '<button class="watch-item '+(b===state.base&&q===state.quote?'active':'')+'" data-base="'+b+'" data-quote="'+q+'" aria-label="'+esc(t('desk.viewPairAria',{base:b,quote:q}))+'" aria-pressed="'+(b===state.base&&q===state.quote)+'"><div class="watch-top"><span class="currency-icon">'+symbols[b]+'</span>'+b+' / '+q+'<span class="watch-dot"></span></div><div class="watch-rate">'+rate(last)+'</div><div class="watch-bottom"><span class="watch-change '+(change>=0?'positive':'negative')+'">'+(change>=0?'↗ ':'↘ ')+pct(change)+'</span>'+sparkline(s.slice(-18).map(x=>x.rate),change>=0?'#77965e':'#b4937c')+'</div></button>';}).join('');$$('.watch-item').forEach(b=>b.onclick=()=>setPair(b.dataset.base,b.dataset.quote));}
+
+function render(){
+ if(!state.data)return;
+ state.series=seriesFor(state.data.rows,state.base,state.quote);
+ state.model=project(state.series,state.horizon,state.impact);
+ const m=state.model,last=state.series.at(-1),change=last.rate/state.series.at(-2).rate-1;
+ $('#base-currency').value=state.base;$('#quote-currency').value=state.quote;
+ renderWatch();
+ $('#spot-rate').textContent=rate(m.spot);
+ $('#rate-change').textContent=(change>=0?'↗ ':'↘ ')+t('desk.lastSession',{pct:pct(change)});
+ $('#rate-change').className='rate-change '+(change>=0?'positive':'negative');
+ $('#rate-description').textContent=t('desk.rateDesc',{base:state.base,quote:state.quote});
+ $('#forecast-price').textContent=rate(m.last.rate);
+ const move=m.last.rate/m.spot-1;
+ $('#forecast-description').textContent=t('desk.forecastDesc',{pct:pct(move),horizon:state.horizon});
+ $('#lower-rate').textContent=rate(m.last.lower);
+ $('#upper-rate').textContent=rate(m.last.upper);
+ $('#trend-factor').textContent=m.drift>=0?t('desk.upwardDrift'):t('desk.downwardDrift');
+ $('#volatility-factor').textContent=(m.sigma*Math.sqrt(252)*100).toFixed(2)+'%';
+ $('#scenario-factor').textContent=state.impact?((state.impact>0?'+':'')+state.impact+' bps'):t('desk.none');
+ $('#forecast-footnote').textContent=state.impact?t('desk.footnoteScenario',{pct:pct(state.impact/10000)}):t('desk.footnotePlain');
+ $$('#horizon-buttons button').forEach(b=>{const active=Number(b.dataset.days)===state.horizon;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
+ $('#chart-source-date').textContent=t('desk.asOf',{date:formatDateShort(last.date),year:last.date.slice(0,4)});
+ $('#source-status').innerHTML='<span class="status-dot"></span>'+esc(state.live?t('status.refreshedRef'):t('status.snapshotPrefix',{date:formatDateShort(last.date)}));
+ $('#footer-source').textContent=t('desk.footerSourceData',{date:last.date});
+ $('#data-detail').textContent=t('desk.dataDetail',{count:state.data.rows.length,start:state.data.rows[0].date,end:state.data.rows.at(-1).date,source:state.live?t('desk.sourceFrankfurter'):t('desk.sourceSnapshot')});
+ $('#quick-base-label').textContent=state.base;$('#quick-base').textContent=state.base;
+ $('#budget-base').textContent=state.base;$('#budget-quote').textContent=state.quote;
+ $('#fee-currency').textContent=state.base;$('#budget-horizon').textContent=t('budget.horizonPill',{horizon:state.horizon});
+ $('#impact-pair').textContent=state.base+'/'+state.quote;
+ renderChart();renderQuick();renderBudget();renderBacktest();
+ window.dispatchEvent(new Event('fx-context-changed'));
+}
+
 let chartPoints=[],chartBounds=null;
-function renderChart(){if(!state.model||$('#view-desk').hidden)return;const history=state.range==='all'?state.series:state.series.slice(-state.range),future=state.model.points,all=[...history,...future],wrap=$('#chart-wrap'),W=Math.max(wrap.clientWidth,300),H=W<500?240:286,L=8,R=48,T=18,B=38,pw=W-L-R,ph=H-T-B;const values=[...history.map(p=>p.rate),...future.flatMap(p=>[p.lower,p.upper])];let lo=Math.min(...values),hi=Math.max(...values);const margin=(hi-lo)*.16||lo*.005;lo-=margin;hi+=margin;const x=i=>L+i/(all.length-1)*pw,y=v=>T+(hi-v)/(hi-lo)*ph;const path=pts=>pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');const historyLine=path(history.map((p,i)=>[x(i),y(p.rate)]));const anchor=history.length-1;const fx=[{...history.at(-1),lower:history.at(-1).rate,upper:history.at(-1).rate},...future];const projection=path(fx.map((p,i)=>[x(anchor+i),y(p.rate)]));const band=path(fx.map((p,i)=>[x(anchor+i),y(p.upper)]))+' '+fx.slice().reverse().map((p,i)=>'L'+x(anchor+fx.length-1-i).toFixed(2)+' '+y(p.lower).toFixed(2)).join(' ')+' Z';const ticks=Array.from({length:5},(_,i)=>{const v=lo+(hi-lo)*i/4,yy=y(v);return '<line x1="'+L+'" x2="'+(W-R+3)+'" y1="'+yy+'" y2="'+yy+'" stroke="#eaf0e6" stroke-dasharray="3 4"/><text x="'+(W-R+9)+'" y="'+(yy+3)+'" fill="#96a08b" font-size="9">'+rate(v)+'</text>';}).join('');const indices=[0,Math.round((history.length-1)*.33),Math.round((history.length-1)*.66),history.length-1,all.length-1];let prev=-100;const dates=indices.filter(i=>{const xx=x(i);if(xx-prev<46&&i!==all.length-1)return false;prev=xx;return true;}).map((i,k)=>'<text x="'+x(i)+'" y="'+(H-12)+'" text-anchor="'+(i===0?'start':i===all.length-1?'end':'middle')+'" fill="#96a08b" font-size="8">'+dateLabel(all[i].date)+'</text>').join('');const todayX=x(anchor),lastY=y(future.at(-1).rate);const area=historyLine+' L'+x(anchor)+' '+(T+ph)+' L'+L+' '+(T+ph)+' Z';$('#rate-chart').setAttribute('viewBox','0 0 '+W+' '+H);$('#rate-chart').innerHTML='<title>'+state.base+'/'+state.quote+' history and '+state.horizon+'-day illustrative projection</title><desc>Last rate '+rate(state.model.spot)+'. Projected central rate '+rate(state.model.last.rate)+'. 80 percent model interval '+rate(state.model.last.lower)+' to '+rate(state.model.last.upper)+'.</desc><defs><linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9bbb7d" stop-opacity=".16"/><stop offset="100%" stop-color="#9bbb7d" stop-opacity="0"/></linearGradient></defs><rect x="'+todayX+'" y="'+T+'" width="'+(W-R-todayX)+'" height="'+ph+'" fill="#f6f9ef"/>'+ticks+'<path d="'+area+'" fill="url(#area-fill)"/><path d="'+band+'" fill="#d7e7bf" opacity=".75"/><path d="'+historyLine+'" fill="none" stroke="#507c50" stroke-width="2.2" stroke-linejoin="round"/><path d="'+projection+'" fill="none" stroke="#8da963" stroke-width="2" stroke-dasharray="4 4"/><line x1="'+todayX+'" x2="'+todayX+'" y1="'+(T-4)+'" y2="'+(T+ph)+'" stroke="#b7c6a3" stroke-dasharray="3 4"/><circle cx="'+todayX+'" cy="'+y(state.model.spot)+'" r="3.4" fill="#557c45" stroke="white" stroke-width="1.8"/><circle cx="'+x(all.length-1)+'" cy="'+lastY+'" r="3.4" fill="#8fac64" stroke="white" stroke-width="1.5"/>'+dates+'<line id="hover-line" y1="'+T+'" y2="'+(T+ph)+'" stroke="#a4b68c" stroke-dasharray="2 3" visibility="hidden"/><circle id="hover-dot" r="4" fill="#4b7242" stroke="#fff" stroke-width="2" visibility="hidden"/>';chartPoints=all.map((p,i)=>({...p,x:x(i),y:y(p.rate),future:i>=history.length}));chartBounds={W,H,L,pw};}
-$('#rate-chart').addEventListener('pointermove',e=>{if(!chartBounds||!chartPoints.length)return;const rect=e.currentTarget.getBoundingClientRect(),px=(e.clientX-rect.left)/rect.width*chartBounds.W;const i=Math.max(0,Math.min(chartPoints.length-1,Math.round((px-chartBounds.L)/chartBounds.pw*(chartPoints.length-1))));const p=chartPoints[i],line=$('#hover-line'),dot=$('#hover-dot');if(!line||!dot)return;line.setAttribute('x1',p.x);line.setAttribute('x2',p.x);line.setAttribute('visibility','visible');dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y);dot.setAttribute('visibility','visible');const tip=$('#chart-tooltip');tip.innerHTML='<small>'+p.date+' · '+(p.future?'Projection':'Reference rate')+'</small>'+rate(p.rate)+' '+state.quote;tip.hidden=false;tip.style.left=Math.min(Math.max(0,e.clientX-rect.left+12),rect.width-165)+'px';tip.style.top=Math.max(0,p.y/chartBounds.H*rect.height-50)+'px';});
+function renderChart(){
+ if(!state.model||$('#view-desk').hidden)return;
+ const history=state.range==='all'?state.series:state.series.slice(-state.range),future=state.model.points,all=[...history,...future],wrap=$('#chart-wrap'),W=Math.max(wrap.clientWidth,300),H=W<500?240:286,L=8,R=48,T=18,B=38,pw=W-L-R,ph=H-T-B;
+ const values=[...history.map(p=>p.rate),...future.flatMap(p=>[p.lower,p.upper])];let lo=Math.min(...values),hi=Math.max(...values);const margin=(hi-lo)*.16||lo*.005;lo-=margin;hi+=margin;
+ const x=i=>L+i/(all.length-1)*pw,y=v=>T+(hi-v)/(hi-lo)*ph;
+ const path=pts=>pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
+ const historyLine=path(history.map((p,i)=>[x(i),y(p.rate)]));const anchor=history.length-1;
+ const fx=[{...history.at(-1),lower:history.at(-1).rate,upper:history.at(-1).rate},...future];
+ const projection=path(fx.map((p,i)=>[x(anchor+i),y(p.rate)]));
+ const band=path(fx.map((p,i)=>[x(anchor+i),y(p.upper)]))+' '+fx.slice().reverse().map((p,i)=>'L'+x(anchor+fx.length-1-i).toFixed(2)+' '+y(p.lower).toFixed(2)).join(' ')+' Z';
+ const ticks=Array.from({length:5},(_,i)=>{const v=lo+(hi-lo)*i/4,yy=y(v);return '<line x1="'+L+'" x2="'+(W-R+3)+'" y1="'+yy+'" y2="'+yy+'" stroke="#eaf0e6" stroke-dasharray="3 4"/><text x="'+(W-R+9)+'" y="'+(yy+3)+'" fill="#96a08b" font-size="9">'+rate(v)+'</text>';}).join('');
+ const indices=[0,Math.round((history.length-1)*.33),Math.round((history.length-1)*.66),history.length-1,all.length-1];let prev=-100;
+ const dates=indices.filter(i=>{const xx=x(i);if(xx-prev<46&&i!==all.length-1)return false;prev=xx;return true;}).map(i=>'<text x="'+x(i)+'" y="'+(H-12)+'" text-anchor="'+(i===0?'start':i===all.length-1?'end':'middle')+'" fill="#96a08b" font-size="8">'+esc(formatDateShort(all[i].date))+'</text>').join('');
+ const todayX=x(anchor),lastY=y(future.at(-1).rate);const area=historyLine+' L'+x(anchor)+' '+(T+ph)+' L'+L+' '+(T+ph)+' Z';
+ $('#rate-chart').setAttribute('viewBox','0 0 '+W+' '+H);
+ $('#rate-chart').innerHTML='<title>'+esc(t('desk.chartTitle',{base:state.base,quote:state.quote,horizon:state.horizon}))+'</title><desc>'+esc(t('desk.chartDesc',{spot:rate(state.model.spot),center:rate(state.model.last.rate),lower:rate(state.model.last.lower),upper:rate(state.model.last.upper)}))+'</desc><defs><linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9bbb7d" stop-opacity=".16"/><stop offset="100%" stop-color="#9bbb7d" stop-opacity="0"/></linearGradient></defs><rect x="'+todayX+'" y="'+T+'" width="'+(W-R-todayX)+'" height="'+ph+'" fill="#f6f9ef"/>'+ticks+'<path d="'+area+'" fill="url(#area-fill)"/><path d="'+band+'" fill="#d7e7bf" opacity=".75"/><path d="'+historyLine+'" fill="none" stroke="#507c50" stroke-width="2.2" stroke-linejoin="round"/><path d="'+projection+'" fill="none" stroke="#8da963" stroke-width="2" stroke-dasharray="4 4"/><line x1="'+todayX+'" x2="'+todayX+'" y1="'+(T-4)+'" y2="'+(T+ph)+'" stroke="#b7c6a3" stroke-dasharray="3 4"/><circle cx="'+todayX+'" cy="'+y(state.model.spot)+'" r="3.4" fill="#557c45" stroke="white" stroke-width="1.8"/><circle cx="'+x(all.length-1)+'" cy="'+lastY+'" r="3.4" fill="#8fac64" stroke="white" stroke-width="1.5"/>'+dates+'<line id="hover-line" y1="'+T+'" y2="'+(T+ph)+'" stroke="#a4b68c" stroke-dasharray="2 3" visibility="hidden"/><circle id="hover-dot" r="4" fill="#4b7242" stroke="#fff" stroke-width="2" visibility="hidden"/>';
+ chartPoints=all.map((p,i)=>({...p,x:x(i),y:y(p.rate),future:i>=history.length}));chartBounds={W,H,L,pw};
+}
+
+$('#rate-chart').addEventListener('pointermove',e=>{
+ if(!chartBounds||!chartPoints.length)return;
+ const rect=e.currentTarget.getBoundingClientRect(),px=(e.clientX-rect.left)/rect.width*chartBounds.W;
+ const i=Math.max(0,Math.min(chartPoints.length-1,Math.round((px-chartBounds.L)/chartBounds.pw*(chartPoints.length-1))));
+ const p=chartPoints[i],line=$('#hover-line'),dot=$('#hover-dot');if(!line||!dot)return;
+ line.setAttribute('x1',p.x);line.setAttribute('x2',p.x);line.setAttribute('visibility','visible');dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y);dot.setAttribute('visibility','visible');
+ const tip=$('#chart-tooltip');tip.innerHTML='<small>'+p.date+' · '+esc(p.future?t('desk.tooltipProjection'):t('desk.tooltipReference'))+'</small>'+rate(p.rate)+' '+state.quote;tip.hidden=false;tip.style.left=Math.min(Math.max(0,e.clientX-rect.left+12),rect.width-165)+'px';tip.style.top=Math.max(0,p.y/chartBounds.H*rect.height-50)+'px';
+});
 $('#rate-chart').addEventListener('pointerleave',()=>{$('#chart-tooltip').hidden=true;$('#hover-line')?.setAttribute('visibility','hidden');$('#hover-dot')?.setAttribute('visibility','hidden');});
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(renderChart,100);});
-function renderQuick(){if(!state.model)return;const amount=Number($('#quick-amount').value),valid=Number.isFinite(amount)&&amount>=0&&amount<=1e9;$('#quick-result').textContent=valid?money(amount*state.model.spot,state.quote):'Enter a valid amount';$('#quick-projected').textContent=valid?money(amount*state.model.last.rate,state.quote):'—';}
+
+function renderQuick(){if(!state.model)return;const amount=Number($('#quick-amount').value),valid=Number.isFinite(amount)&&amount>=0&&amount<=1e9;$('#quick-result').textContent=valid?money(amount*state.model.spot,state.quote):t('desk.enterValidAmount');$('#quick-projected').textContent=valid?money(amount*state.model.last.rate,state.quote):'—';}
 $('#quick-amount').oninput=renderQuick;$('.budget-link').onclick=()=>{$('#budget-amount').value=$('#quick-amount').value;$('#budget-mode').value='send';renderBudget();};
-$('#scenario-preview').innerHTML=SCENARIOS.map((s,i)=>'<button class="scenario-row" data-sample="'+i+'"><span class="scenario-icon">'+icon(s.icon)+'</span><span class="scenario-body"><strong>'+esc(s.title)+'</strong><small>'+esc(s.type)+' · Hypothetical event</small></span><span class="scenario-tag">EXPLORE SCENARIO</span><i>'+icon('arrow')+'</i></button>').join('');
-$('#sample-buttons').innerHTML=SCENARIOS.map((s,i)=>'<button data-sample="'+i+'">'+esc(s.short)+'</button>').join('');
-$$('[data-sample]').forEach(b=>b.onclick=()=>{const sample=SCENARIOS[Number(b.dataset.sample)];$('#headline').value=sample.text;$('#signal-currency').value=sample.currency;location.hash='signals';runAnalysis();});
-function resetAnalysis(){$('#impact-slider').value='0';$('#impact-value').textContent='0';$('#analysis-status').textContent='Awaiting input';$('#signal-label').textContent='A headline is a starting point.';$('#signal-explanation').textContent='Add an event to explore an illustrative impact on the selected currency pair.';$('#detected-terms').innerHTML='';$('#apply-signal').disabled=true;}
-function runAnalysis(){const text=$('#headline').value.trim();if(!text){toast('Add a headline or choose a sample first.');$('#headline').focus();return;}const currency=$('#signal-currency').value,result=analyse(text,currency,state.base,state.quote);state.analysis=result;$('#analysis-status').textContent='Keyword interpretation';$('#signal-label').textContent=result.label;$('#signal-explanation').textContent=!result.relevant?'The selected currency is outside '+state.base+'/'+state.quote+'. Choose a currency in the pair or explicitly set a pair-level assumption.':result.negated?'The text contains a negation or uncertainty cue. The demo leaves the impact at zero; review the context before setting an assumption.':result.classified?'Matched wording suggests a possible '+(result.score>0?'supportive':'negative')+' scenario for '+currency+'. The initial ±35 bps is an illustrative preset, not a learned estimate.': 'The demo has no clear directional interpretation. You can still choose an explicit assumption with the slider below.';$('#detected-terms').innerHTML=result.matches.map(t=>'<span>'+esc(t)+'</span>').join('');$('#impact-slider').value=String(result.bps);$('#impact-value').textContent=(result.bps>0?'+':'')+result.bps;$('#apply-signal').disabled=false;}
-$('#analyse').onclick=runAnalysis;$('#signal-currency').onchange=()=>{if($('#headline').value.trim())runAnalysis();};$('#impact-slider').oninput=e=>{const n=Number(e.target.value);$('#impact-value').textContent=(n>0?'+':'')+n;$('#apply-signal').disabled=false;if(!state.analysis){$('#analysis-status').textContent='Manual assumption';$('#signal-label').textContent='Your own scenario.';$('#signal-explanation').textContent='This impact is set by you. It is not a prediction of how the market will react.';}};
-$('#apply-signal').onclick=()=>{state.impact=Number($('#impact-slider').value);state.headline=$('#headline').value.trim()||'User-defined scenario';render();location.hash='desk';toast('Scenario applied: '+(state.impact>0?'+':'')+state.impact+' bps at the forecast horizon.');};
-$('#clear-signal').onclick=()=>{state.impact=0;state.headline='';state.analysis=null;$('#headline').value='';resetAnalysis();render();toast('Scenario cleared. The forecast uses historical data only.');};
+
+function renderScenarios(){
+ const scenarios=getScenarios(getLang());
+ $('#scenario-preview').innerHTML=scenarios.map((s,i)=>'<button class="scenario-row" data-sample="'+i+'"><span class="scenario-icon">'+icon(s.icon)+'</span><span class="scenario-body"><strong>'+esc(s.title)+'</strong><small>'+esc(s.type)+' · '+esc(t('desk.hypotheticalEvent'))+'</small></span><span class="scenario-tag">'+esc(t('desk.exploreScenario'))+'</span><i>'+icon('arrow')+'</i></button>').join('');
+ $('#sample-buttons').innerHTML=scenarios.map((s,i)=>'<button data-sample="'+i+'">'+esc(s.short)+'</button>').join('');
+ $$('[data-sample]').forEach(b=>b.onclick=()=>{const sample=getScenarios(getLang())[Number(b.dataset.sample)];$('#headline').value=sample.text;$('#signal-currency').value=sample.currency;location.hash='signals';runAnalysis();});
+}
+renderScenarios();
+
+function renderAnalysisDisplay(){
+ if(state.analysisMode==='awaiting'){
+  $('#analysis-status').textContent=t('signals.awaitingInput');
+  $('#signal-label').textContent=t('signals.defaultLabel');
+  $('#signal-explanation').textContent=t('signals.defaultExplanation');
+  return;
+ }
+ if(state.analysisMode==='manual'){
+  $('#analysis-status').textContent=t('signals.manualStatus');
+  $('#signal-label').textContent=t('signals.manualLabel');
+  $('#signal-explanation').textContent=t('signals.manualExplanation');
+  return;
+ }
+ const result=state.analysis,currency=state.analysisCurrency;
+ if(!result)return;
+ $('#analysis-status').textContent=t('signals.keywordStatus');
+ const labelMap={
+  outside_pair:t('signals.labelOutside'),
+  needs_review:t('signals.labelNeedsReview'),
+  no_signal:t('signals.labelNoSignal'),
+  mixed:t('signals.labelMixed'),
+  support:t('signals.labelSupport',{currency}),
+  pressure:t('signals.labelPressure',{currency}),
+ };
+ $('#signal-label').textContent=labelMap[result.labelCode]||result.label;
+ $('#signal-explanation').textContent=!result.relevant?t('signals.explainOutside',{base:state.base,quote:state.quote}):result.negated?t('signals.explainNegated'):result.classified?t('signals.explainClassified',{dir:result.score>0?t('signals.explainSupportive'):t('signals.explainNegative'),currency}):t('signals.explainNone');
+}
+
+function resetAnalysis(){state.analysis=null;state.analysisMode='awaiting';$('#impact-slider').value='0';$('#impact-value').textContent='0';$('#detected-terms').innerHTML='';$('#apply-signal').disabled=true;renderAnalysisDisplay();}
+function runAnalysis(){const text=$('#headline').value.trim();if(!text){toast(t('signals.toastNeedHeadline'));$('#headline').focus();return;}const currency=$('#signal-currency').value,result=analyse(text,currency,state.base,state.quote);state.analysis=result;state.analysisCurrency=currency;state.analysisMode='analyzed';renderAnalysisDisplay();$('#detected-terms').innerHTML=result.matches.map(m=>'<span>'+esc(m)+'</span>').join('');$('#impact-slider').value=String(result.bps);$('#impact-value').textContent=(result.bps>0?'+':'')+result.bps;$('#apply-signal').disabled=false;}
+$('#analyse').onclick=runAnalysis;$('#signal-currency').onchange=()=>{if($('#headline').value.trim())runAnalysis();};$('#impact-slider').oninput=e=>{const n=Number(e.target.value);$('#impact-value').textContent=(n>0?'+':'')+n;$('#apply-signal').disabled=false;if(!state.analysis){state.analysisMode='manual';renderAnalysisDisplay();}};
+$('#apply-signal').onclick=()=>{state.impact=Number($('#impact-slider').value);state.headline=$('#headline').value.trim()||'User-defined scenario';render();location.hash='desk';toast(t('signals.toastApplied',{bps:(state.impact>0?'+':'')+state.impact}));};
+$('#clear-signal').onclick=()=>{state.impact=0;state.headline='';$('#headline').value='';resetAnalysis();render();toast(t('signals.toastCleared'));};
+resetAnalysis();
+
 function budgetInputs(){return {amount:Number($('#budget-amount').value),mode:$('#budget-mode').value,percent:Number($('#fee-percent').value),flat:Number($('#fee-flat').value)};}
-function renderBudget(){if(!state.model)return;const input=budgetInputs(),receive=input.mode==='receive';$('#budget-amount-label').textContent=(receive?'Target amount to receive (':'Amount to exchange (')+(receive?state.quote:state.base)+')';$('#budget-result-label').textContent=receive?'Estimated source amount needed, including fees':'Estimated amount received after fees';$('#budget-scenario').textContent=state.impact?(state.impact>0?'+':'')+state.impact+' bps':'None';try{const m=state.model,result=budget({...input,spot:m.spot,center:m.last.rate,lower:m.last.lower,upper:m.last.upper}),currency=receive?state.base:state.quote;$('#budget-projection').textContent=money(result.projected,currency);const delta=result.projected-result.current;$('#budget-vs').textContent=(delta>=0?'+':'−')+money(Math.abs(delta),currency)+' versus the current reference-rate scenario';$('#budget-low').textContent=money(result.low,currency);$('#budget-high').textContent=money(result.high,currency);$('#budget-current').textContent=money(result.current,currency);$('#budget-fees').textContent=money(result.fees,state.base);$('#budget-error').textContent='';$('#save-budget').disabled=false;}catch(e){$('#budget-error').textContent=e.message;for(const id of ['budget-projection','budget-vs','budget-low','budget-high','budget-current','budget-fees'])$('#'+id).textContent='—';$('#save-budget').disabled=true;}}
+function renderBudget(){
+ if(!state.model)return;
+ const input=budgetInputs(),receive=input.mode==='receive';
+ $('#budget-amount-label').textContent=receive?t('budget.amountReceive',{currency:state.quote}):t('budget.amountSend',{currency:state.base});
+ $('#budget-result-label').textContent=receive?t('budget.resultReceive'):t('budget.resultSend');
+ $('#budget-scenario').textContent=state.impact?(state.impact>0?'+':'')+state.impact+' bps':t('desk.none');
+ $('#budget-horizon').textContent=t('budget.horizonPill',{horizon:state.horizon});
+ try{
+  const m=state.model,result=budget({...input,spot:m.spot,center:m.last.rate,lower:m.last.lower,upper:m.last.upper}),currency=receive?state.base:state.quote;
+  $('#budget-projection').textContent=money(result.projected,currency);
+  const delta=result.projected-result.current;
+  $('#budget-vs').textContent=t('budget.vsCurrent',{sign:delta>=0?'+':'−',amount:money(Math.abs(delta),currency)});
+  $('#budget-low').textContent=money(result.low,currency);
+  $('#budget-high').textContent=money(result.high,currency);
+  $('#budget-current').textContent=money(result.current,currency);
+  $('#budget-fees').textContent=money(result.fees,state.base);
+  $('#budget-error').textContent='';$('#save-budget').disabled=false;
+ }catch(e){
+  $('#budget-error').textContent=localizeBudgetError(e.message);
+  for(const id of ['budget-projection','budget-vs','budget-low','budget-high','budget-current','budget-fees'])$('#'+id).textContent='—';
+  $('#save-budget').disabled=true;
+ }
+}
 for(const id of ['budget-mode','budget-amount','fee-percent','fee-flat'])$('#'+id).addEventListener('input',renderBudget);
+
 const STORAGE='fx-warriors-budgets-v1';
 try{const stored=JSON.parse(localStorage.getItem(STORAGE)||'[]');state.saved=Array.isArray(stored)?stored.filter(s=>s&&typeof s.id==='string'&&typeof s.name==='string'&&CURRENCIES.includes(s.base)&&CURRENCIES.includes(s.quote)&&s.base!==s.quote&&Number.isFinite(s.amount)&&['send','receive'].includes(s.mode)&&[5,10,20].includes(s.horizon)&&Number.isFinite(s.percent)&&Number.isFinite(s.flat)&&Number.isFinite(s.impact)&&Math.abs(s.impact)<=100).slice(0,12):[];}catch{state.saved=[];}
-function persist(){try{if(state.saved.length)localStorage.setItem(STORAGE,JSON.stringify(state.saved));else localStorage.removeItem(STORAGE);return true;}catch{toast('Browser storage is unavailable; this scenario cannot be saved.');return false;}}
-function renderSaved(){$('#saved-budgets').innerHTML=state.saved.length?state.saved.map(s=>'<div class="saved-row"><div><strong>'+esc(s.name)+'</strong><small>'+esc(s.base+' → '+s.quote)+' · '+esc(money(s.amount,s.mode==='receive'?s.quote:s.base))+' · '+s.horizon+' weekdays · '+esc(s.date)+'</small></div><button data-load="'+esc(s.id)+'">Load</button><button data-delete="'+esc(s.id)+'" aria-label="Delete '+esc(s.name)+'">Delete</button></div>').join(''):'<div class="empty-state">No saved scenarios yet. Build one above and keep it for later.</div>';$$('[data-load]').forEach(b=>b.onclick=()=>{const s=state.saved.find(s=>s.id===b.dataset.load);if(!s)return;setPair(s.base,s.quote);state.horizon=s.horizon;state.impact=s.impact;$('#budget-mode').value=s.mode;$('#budget-amount').value=s.amount;$('#fee-percent').value=s.percent;$('#fee-flat').value=s.flat;$('#budget-name').value=s.name;render();toast('Scenario loaded using the currently available reference data.');});$$('[data-delete]').forEach(b=>b.onclick=()=>{const old=state.saved;state.saved=state.saved.filter(s=>s.id!==b.dataset.delete);if(!persist())state.saved=old;renderSaved();});}
-$('#save-budget').onclick=()=>{const name=$('#budget-name').value.trim()||'My next exchange';const input=budgetInputs();try{budget({...input,spot:state.model.spot,center:state.model.last.rate,lower:state.model.last.lower,upper:state.model.last.upper});}catch(e){toast(e.message);return;}const old=state.saved;state.saved=[{id:globalThis.crypto?.randomUUID?.()||String(Date.now()),name:name.slice(0,60),base:state.base,quote:state.quote,horizon:state.horizon,impact:state.impact,date:new Date().toISOString().slice(0,10),...input},...state.saved].slice(0,12);if(persist())toast('Scenario saved in this browser.');else state.saved=old;renderSaved();};
-function clearSaved(){const old=state.saved;state.saved=[];if(persist())toast('Saved budget data has been deleted from this browser.');else state.saved=old;renderSaved();}
+function persist(){try{if(state.saved.length)localStorage.setItem(STORAGE,JSON.stringify(state.saved));else localStorage.removeItem(STORAGE);return true;}catch{toast(t('budget.toastStorageUnavailable'));return false;}}
+function renderSaved(){
+ $('#saved-budgets').innerHTML=state.saved.length?state.saved.map(s=>'<div class="saved-row"><div><strong>'+esc(s.name)+'</strong><small>'+esc(s.base+' → '+s.quote)+' · '+esc(money(s.amount,s.mode==='receive'?s.quote:s.base))+' · '+esc(t('budget.weekdaysCount',{horizon:s.horizon}))+' · '+esc(s.date)+'</small></div><button data-load="'+esc(s.id)+'">'+esc(t('budget.loadBtn'))+'</button><button data-delete="'+esc(s.id)+'" aria-label="'+esc(t('budget.deleteAria',{name:s.name}))+'">'+esc(t('budget.deleteBtn'))+'</button></div>').join(''):'<div class="empty-state">'+esc(t('budget.emptySaved'))+'</div>';
+ $$('[data-load]').forEach(b=>b.onclick=()=>{const s=state.saved.find(s=>s.id===b.dataset.load);if(!s)return;setPair(s.base,s.quote);state.horizon=s.horizon;state.impact=s.impact;$('#budget-mode').value=s.mode;$('#budget-amount').value=s.amount;$('#fee-percent').value=s.percent;$('#fee-flat').value=s.flat;$('#budget-name').value=s.name;render();toast(t('budget.toastLoaded'));});
+ $$('[data-delete]').forEach(b=>b.onclick=()=>{const old=state.saved;state.saved=state.saved.filter(s=>s.id!==b.dataset.delete);if(!persist())state.saved=old;renderSaved();});
+}
+$('#save-budget').onclick=()=>{const name=$('#budget-name').value.trim()||t('budget.defaultName');const input=budgetInputs();try{budget({...input,spot:state.model.spot,center:state.model.last.rate,lower:state.model.last.lower,upper:state.model.last.upper});}catch(e){toast(localizeBudgetError(e.message));return;}const old=state.saved;state.saved=[{id:globalThis.crypto?.randomUUID?.()||String(Date.now()),name:name.slice(0,60),base:state.base,quote:state.quote,horizon:state.horizon,impact:state.impact,date:new Date().toISOString().slice(0,10),...input},...state.saved].slice(0,12);if(persist())toast(t('budget.toastSaved'));else state.saved=old;renderSaved();};
+function clearSaved(){const old=state.saved;state.saved=[];if(persist())toast(t('budget.toastCleared'));else state.saved=old;renderSaved();}
 $('#clear-budgets').onclick=clearSaved;$('#privacy-clear').onclick=clearSaved;
-function renderBacktest(){const t=backtest(state.series,state.horizon);$('#backtest-count').textContent=t.n+' historical forecasts';$('#model-mae').textContent=t.n?rate(t.mae)+' '+state.quote:'Insufficient history';$('#baseline-mae').textContent=t.n?rate(t.baseline)+' '+state.quote:'—';$('#direction-accuracy').textContent=t.n&&t.direction!==null?(t.direction*100).toFixed(0)+'%':'—';$('#backtest-note').textContent='Rolling '+state.horizon+'-observation-ahead forecasts, starting after 31 observations. Only earlier data are used; news scenarios are excluded. '+(t.n?'Observed 80% interval coverage: '+(t.coverage*100).toFixed(0)+'%. ':'')+'This short, overlapping sample is descriptive and does not establish future performance.';}
-$('#export').onclick=()=>{if(!state.model)return;const rows=[['FX Warriors — illustrative forecast'],['Pair',state.base+'/'+state.quote],['Reference date',state.series.at(-1).date],['Model','25% of mean recent log return; normal-return interval'],['Scenario impact (bps)',String(state.impact)],['Interval','80% model estimate; not calibrated'],[],['date','type','rate','lower','upper'],...state.series.map(p=>[p.date,'reference',p.rate,'','']),...state.model.points.map(p=>[p.date,'projection',p.rate,p.lower,p.upper])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download='fx-warriors-'+state.base+'-'+state.quote+'-'+state.series.at(-1).date+'.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Forecast exported with dates and model assumptions.');};
-$('#refresh').onclick=async()=>{const button=$('#refresh');button.disabled=true;button.classList.add('loading');const from=new Date();from.setUTCDate(from.getUTCDate()-100);const start=from.toISOString().slice(0,10);try{const url='https://api.frankfurter.dev/v2/providers/ecb/rates?base=EUR&quotes=USD,SGD,GBP,CNY,JPY&from='+start;const response=await fetch(url,{signal:AbortSignal.timeout(9000)});if(!response.ok)throw new Error('Unavailable');const raw=await response.json();if(!Array.isArray(raw))throw new Error('Unexpected response');const grouped={};for(const r of raw){if(!/^\d{4}-\d{2}-\d{2}$/.test(r.date)||r.base!=='EUR'||!CURRENCIES.includes(r.quote)||!Number.isFinite(r.rate)||r.rate<=0)continue;grouped[r.date]??={date:r.date,rates:{EUR:1}};grouped[r.date].rates[r.quote]=r.rate;}const rows=Object.values(grouped).filter(r=>CURRENCIES.every(c=>Number.isFinite(r.rates[c]))).sort((a,b)=>a.date.localeCompare(b.date));if(rows.length<30||rows.at(-1).date<state.data.rows.at(-1).date)throw new Error('Incomplete data');state.data={...state.data,rows};state.live=true;render();toast('Reference data refreshed through '+rows.at(-1).date+'.');}catch{toast('Rate service unavailable. Using the verified ECB snapshot through '+state.data.rows.at(-1).date+'.');}finally{button.disabled=false;button.classList.remove('loading');}};
-mountAgent({getContext:()=>({base:state.base,quote:state.quote,horizon:state.horizon,scenarioBps:state.impact,ready:!!state.data}),icon,esc,toast});
-view(location.hash.slice(1));renderSaved();
-try{const response=await fetch('./rates.json');if(!response.ok)throw new Error('Snapshot unavailable');const data=await response.json();if(!Array.isArray(data.rows)||data.rows.length<30||!data.rows.every(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&CURRENCIES.every(c=>Number.isFinite(r.rates[c])&&r.rates[c]>0)))throw new Error('Snapshot invalid');state.data=data;$('#signal-currency').value=state.base;render();}catch(e){$('#source-status').textContent='Reference data unavailable';$('#forecast-description').textContent='Please reload the page to retry.';toast('Unable to load the reference data. Please reload.');console.error(e);}
+
+function renderBacktest(){
+ const bt=backtest(state.series,state.horizon);
+ $('#backtest-count').textContent=t('method.evalCount',{count:bt.n});
+ $('#model-mae').textContent=bt.n?rate(bt.mae)+' '+state.quote:t('method.insufficientHistory');
+ $('#baseline-mae').textContent=bt.n?rate(bt.baseline)+' '+state.quote:'—';
+ $('#direction-accuracy').textContent=bt.n&&bt.direction!==null?(bt.direction*100).toFixed(0)+'%':'—';
+ $('#backtest-note').textContent=t('method.backtestNote',{horizon:state.horizon,coverage:bt.n?t('method.backtestCoverage',{pct:(bt.coverage*100).toFixed(0)}):''});
+}
+
+$('#export').onclick=()=>{if(!state.model)return;const rows=[['FX Warriors — illustrative forecast'],['Pair',state.base+'/'+state.quote],['Reference date',state.series.at(-1).date],['Model','25% of mean recent log return; normal-return interval'],['Scenario impact (bps)',String(state.impact)],['Interval','80% model estimate; not calibrated'],[],['date','type','rate','lower','upper'],...state.series.map(p=>[p.date,'reference',p.rate,'','']),...state.model.points.map(p=>[p.date,'projection',p.rate,p.lower,p.upper])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download='fx-warriors-'+state.base+'-'+state.quote+'-'+state.series.at(-1).date+'.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast(t('desk.toastExported'));};
+$('#refresh').onclick=async()=>{const button=$('#refresh');button.disabled=true;button.classList.add('loading');const from=new Date();from.setUTCDate(from.getUTCDate()-100);const start=from.toISOString().slice(0,10);try{const url='https://api.frankfurter.dev/v2/providers/ecb/rates?base=EUR&quotes=USD,SGD,GBP,CNY,JPY&from='+start;const response=await fetch(url,{signal:AbortSignal.timeout(9000)});if(!response.ok)throw new Error('Unavailable');const raw=await response.json();if(!Array.isArray(raw))throw new Error('Unexpected response');const grouped={};for(const r of raw){if(!/^\d{4}-\d{2}-\d{2}$/.test(r.date)||r.base!=='EUR'||!CURRENCIES.includes(r.quote)||!Number.isFinite(r.rate)||r.rate<=0)continue;grouped[r.date]??={date:r.date,rates:{EUR:1}};grouped[r.date].rates[r.quote]=r.rate;}const rows=Object.values(grouped).filter(r=>CURRENCIES.every(c=>Number.isFinite(r.rates[c]))).sort((a,b)=>a.date.localeCompare(b.date));if(rows.length<30||rows.at(-1).date<state.data.rows.at(-1).date)throw new Error('Incomplete data');state.data={...state.data,rows};state.live=true;render();toast(t('desk.toastRefreshed',{date:rows.at(-1).date}));}catch{toast(t('desk.toastRefreshFallback',{date:state.data.rows.at(-1).date}));}finally{button.disabled=false;button.classList.remove('loading');}};
+
+const agent=mountAgent({getContext:()=>({base:state.base,quote:state.quote,horizon:state.horizon,scenarioBps:state.impact,ready:!!state.data}),icon,esc,toast});
+
+onLangChange(()=>{
+ applyStaticI18n();
+ renderScenarios();
+ renderAnalysisDisplay();
+ view(state.view);
+ if(state.data)render();
+ else renderLoadingPlaceholders();
+ renderSaved();
+ agent.refreshI18n();
+});
+
+renderLoadingPlaceholders();
+view(location.hash.slice(1));
+renderSaved();
+try{const response=await fetch('./rates.json');if(!response.ok)throw new Error('Snapshot unavailable');const data=await response.json();if(!Array.isArray(data.rows)||data.rows.length<30||!data.rows.every(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&CURRENCIES.every(c=>Number.isFinite(r.rates[c])&&r.rates[c]>0)))throw new Error('Snapshot invalid');state.data=data;$('#signal-currency').value=state.base;render();}catch(e){$('#source-status').textContent=t('status.refUnavailable');$('#forecast-description').textContent=t('desk.reloadPrompt');toast(t('desk.toastSnapshotError'));console.error(e);}
