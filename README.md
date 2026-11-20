@@ -39,13 +39,13 @@ For each message, the server computes traditional FX outputs and injects them in
 | `get_official_policy_news` | Supplementary fixed Fed/ECB RSS evidence, with cache/coverage labels |
 | `present_fx_answer` | Concise conversational answer, validated citation IDs and follow-up suggestions |
 
-The chat endpoint is `POST /api/chat`; `GET /api/chat` returns connection status. The older `/api/agent` endpoint remains available for the previous structured report workflow. Native `tool_calls` are sent back to the model with real tool outputs. Provider failures remain explicit; no simulated AI or fabricated search response is substituted.
+The chat endpoint is `POST /api/chat`; `GET /api/chat` returns connection status. The older `/api/agent` endpoint remains available for the previous structured report workflow, now with a bounded Tavily `search_news` tool (up to two searches per analysis) alongside the fixed official feeds and a five-round loop. Native `tool_calls` are sent back to the model with real tool outputs. Provider failures remain explicit; no simulated AI or fabricated search response is substituted.
 
 A chat turn has at most six model calls, two searches and two page reads. The model gets up to eight prior user/assistant messages. Current messages and history entries are bounded to 2,000 characters each. Tool names, currency inputs, source IDs and external research endpoints are validated server-side.
 
 ## Search
 
-Search and extraction use Tavily's documented [keyless access](https://docs.tavily.com/documentation/keyless), which supports limited demo use without another credential. This is real keyword web search, beyond the fixed central-bank feeds. An optional server-side `FX_SEARCH_API_KEY` switches to an account's limits without a code change. Shared provider limits may temporarily make search unavailable; the response and research activity show the failure.
+Search and extraction use Tavily's documented [keyless access](https://docs.tavily.com/documentation/keyless), which supports limited demo use without another credential. This is real keyword web search, beyond the fixed central-bank feeds. An optional server-side `FX_SEARCH_API_KEY` switches to an account's limits without a code change. Shared provider limits may temporarily make search unavailable; the response and research activity show the failure. The structured `/api/agent` report workflow uses the same endpoint through `search_news`, capped at two searches per analysis.
 
 Search requests send focused research queries. Page reads accept only HTTPS source URLs returned by a research tool in the same turn. The Worker calls the fixed Tavily API rather than exposing a general-purpose fetch proxy. Source text is treated as untrusted evidence, never as instructions. Search excerpts are not claimed as full-page verification; extracted content is capped at 8,000 characters.
 
