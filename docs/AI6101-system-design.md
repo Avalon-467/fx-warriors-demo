@@ -70,7 +70,7 @@ Browser UI (site/index.html + public/app.mjs + agent-ui.mjs + i18n.mjs)
            7. present_fx_answer          (Citation validation + follow-up generation)
 ```
 
-*(A legacy structured report agent remains available at `POST /api/agent` → `lib/fx-agent.mjs` with a 4-round loop and strict tool-order enforcement before `present_fx_analysis`.)*
+*(A legacy structured report agent remains available at `POST /api/agent` → `lib/fx-agent.mjs` with a 5-round loop, a bounded Tavily `search_news` step, and strict tool-order enforcement before `present_fx_analysis`.)*
 
 ### Quantitative & Hybrid AI Techniques Used
 
