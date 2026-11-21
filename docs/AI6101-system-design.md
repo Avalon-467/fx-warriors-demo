@@ -64,13 +64,13 @@ Browser UI (site/index.html + public/app.mjs + agent-ui.mjs + i18n.mjs)
            1. get_traditional_forecast   (lib/fx-tools.mjs :: forecastExtras multi-model, path, sensitivity, window check, move decomposition)
            2. show_fx_chart              (makeChart -> inline SVG via chat-chart.mjs)
            3. compare_traditional_models (No-change vs. Shrunk drift vs. Mean reversion)
-           4. search_web                 (Tavily Search API, max 2/turn, SSRF-checked URLs)
+           4. search_web                 (Tavily Search API, max 2/turn, SSRF-checked URLs, official RSS fallback on failure)
            5. read_source                (Tavily Extract API, max 2/turn, registered IDs only)
            6. get_official_policy_news   (Fed/ECB RSS + dated snapshot fallback)
            7. present_fx_answer          (Citation validation + follow-up generation)
 ```
 
-*(A legacy structured report agent remains available at `POST /api/agent` → `lib/fx-agent.mjs` with a 5-round loop, a bounded Tavily `search_news` step, and strict tool-order enforcement before `present_fx_analysis`.)*
+*(A legacy structured report agent remains available at `POST /api/agent` → `lib/fx-agent.mjs` with a 5-round loop, a bounded Tavily `search_news` step with automatic official RSS fallback, and strict tool-order enforcement before `present_fx_analysis`.)*
 
 ### Quantitative & Hybrid AI Techniques Used
 

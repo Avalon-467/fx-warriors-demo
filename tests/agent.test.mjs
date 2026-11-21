@@ -72,7 +72,25 @@ function fixture(replies,{searchStatus=200,searchResults=[searchHit]}={}){
  assert.equal(result.model_calls,3);
  assert.equal(fake.searches.length,1);
  assert.ok(result.coverage_gaps.some(g=>g.includes('Web news search failed')));
+ assert.ok(result.coverage_gaps.some(g=>g.includes('official RSS fallback used')));
  assert.equal(result.web_searches[0].error,'Web search is temporarily rate limited. Please try again later.');
+ assert.equal(result.web_searches[0].fallback,'official_rss');assert.equal(result.web_searches[0].result_count,1);
+ const searchTrace=result.trace.find(t=>t.name==='search_news');
+ assert.equal(searchTrace.result.provider,'official_rss_fallback');assert.equal(searchTrace.result.fallback_used,true);
+ assert.deepEqual(searchTrace.result.sources.map(s=>s.id),['fed_0']);
+ assert.deepEqual(result.report.drivers[0].source_ids,['fed_0']);
+}
+// An empty Tavily result set also falls back to official RSS instead of an empty evidence set.
+{
+ const fake=fixture([
+  reply(call('get_traditional_forecast'),call('get_official_policy_news')),
+  reply(call('search_news',{query:'USD SGD monetary policy news'})),
+  reply(call('present_fx_analysis',report))
+ ],{searchResults:[]});
+ const result=await runFxAgent(input,config,{...fake,data});
+ assert.equal(result.model_calls,3);
+ assert.equal(result.web_searches[0].fallback,'official_rss');assert.equal(result.web_searches[0].result_count,1);
+ assert.ok(result.coverage_gaps.some(g=>g.includes('official RSS fallback used')));
  assert.deepEqual(result.report.drivers[0].source_ids,['fed_0']);
 }
 // A report presented before any web search still carries an explicit coverage gap.
@@ -123,4 +141,4 @@ const redirectNews=await getPolicyNews('USD','SGD',async(url,init)=>{assert.equa
 assert.ok(redirectNews.sources.length>0);
 assert.ok(redirectNews.sources.every(s=>s.retrieval_mode==='dated_official_snapshot'&&s.captured_at));
 assert.ok(redirectNews.coverage_gaps.some(s=>s.includes('cached on')));
-console.log('PASS: prompt/tool consistency, five-round search protocol, report repair, web citations, input boundaries, evidence gates, provider errors and call limits.');
+console.log('PASS: prompt/tool consistency, five-round search protocol, official RSS fallback, report repair, web citations, input boundaries, evidence gates, provider errors and call limits.');
