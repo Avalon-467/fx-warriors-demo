@@ -91,9 +91,27 @@ function fixture(replies,{searchStatus=200,searchResults=[searchHit]}={}){
 {
  const fake=fixture([new Response('private provider detail',{status:502})]);
  await assert.rejects(()=>runFxAgent(input,config,{...fake,data}),/HTTP 502/);
+ const badRequest=fixture([new Response('{"error":{"message":"Invalid model parameter"}}',{status:400})]);
+ await assert.rejects(()=>runFxAgent(input,config,{...badRequest,data}),/HTTP 400/);
  const prose=fixture(Array.from({length:5},()=>({choices:[{message:{role:'assistant',content:'A prose-only answer'}}]})));
  await assert.rejects(()=>runFxAgent(input,config,{...prose,data}),/five-round/);
  assert.equal(prose.requests.length,5);
+}
+// Providers in thinking mode reject named tool_choice; agent falls back to narrowed tools + tool_choice=auto.
+{
+ const fake=fixture([
+  new Response('{"error":{"message":"Thinking mode does not support this tool_choice"}}',{status:400}),
+  reply(call('get_traditional_forecast'),call('get_official_policy_news')),
+  reply(call('search_news',{query:'USD SGD monetary policy news'})),
+  reply(call('present_fx_analysis',report))
+ ]);
+ const result=await runFxAgent(input,config,{...fake,data});
+ assert.equal(result.model_calls,3);
+ assert.equal(fake.requests[0].tool_choice.function.name,'get_traditional_forecast');
+ assert.equal(fake.requests[1].tool_choice,'auto');
+ assert.deepEqual(fake.requests[1].tools.map(t=>t.function.name),['get_traditional_forecast']);
+ assert.equal(fake.requests[2].tool_choice,'auto');
+ assert.deepEqual(fake.requests[2].tools.map(t=>t.function.name),['search_news']);
 }
 assert.ok(AGENT_TOOLS.some(t=>t.function.name==='search_news'&&t.function.parameters.required.includes('query')));
 assert.throws(()=>validateInput({...input,horizon:7}));

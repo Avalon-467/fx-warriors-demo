@@ -3,7 +3,7 @@
 > **Course**: AI6101 Introduction to AI and AI Ethics (CCDS, Nanyang Technological University)  
 > **Instructor**: Assoc. Prof. Yu Han (`han.yu@ntu.edu.sg`)  
 > **Team**: FX Warriors  
-> **Team Members & Emails**: `[Member Name 1 — email@e.ntu.edu.sg]`, `[Member Name 2 — email@e.ntu.edu.sg]`, ... *(fill in actual team roster before exporting `<team name>-final-report.docx`)*  
+> **Contributors**: `Xinyuan Hou (@Avalon-467)`, `Chi Zhanhua (@QwQZZZZZ)`, `Yuanzhi (@YuanzhiLuk)`, `何宬熠 (@believer-hcy)` *(confirm `@e.ntu.edu.sg` member emails inside `FX-Warriors-final-report.docx` before sending)*  
 > **Live Demo**: `https://fx-warriors-lab.cloudlessmarigold1.chatgpt.site`
 
 ---
@@ -61,7 +61,7 @@ Browser UI (site/index.html + public/app.mjs + agent-ui.mjs + i18n.mjs)
      ├── Server pre-computes ECB 90d rates + shrunk-drift model context & injects into prompt
      ├── Calls OpenAI-compatible Chat Completions API (max 6 rounds, temperature 0.2)
      └── Executes 7 validated native tools:
-           1. get_traditional_forecast   (lib/fx-tools.mjs)
+           1. get_traditional_forecast   (lib/fx-tools.mjs :: forecastExtras multi-model, path, sensitivity, window check, move decomposition)
            2. show_fx_chart              (makeChart -> inline SVG via chat-chart.mjs)
            3. compare_traditional_models (No-change vs. Shrunk drift vs. Mean reversion)
            4. search_web                 (Tavily Search API, max 2/turn, SSRF-checked URLs)
@@ -77,7 +77,7 @@ Browser UI (site/index.html + public/app.mjs + agent-ui.mjs + i18n.mjs)
 | Component | Technique | Purpose & Design Rationale |
 | --- | --- | --- |
 | **Classical FX Baseline** (`public/core.mjs`) | Log-return shrunk drift (`0.25 × mean(20d)`) + sample std dev (`≤ 60d`) + uncalibrated 80% normal interval | Prevents LLM numerical hallucination; grounds forecasts in reproducible closed-form math. |
-| **Model Comparison** (`lib/fx-tools.mjs`) | Rolling historical evaluation comparing No-change random walk, Shrunk drift, and Mean reversion (`exp(-0.05h)`) | Evaluates whether statistical drift actually beats a naive baseline on recent observations. |
+| **Model & Tool Extensions** (`lib/fx-tools.mjs`) | Rolling comparison + `forecastExtras` (`no_change`, `mean_reversion`, `ensemble`, `±100 bps` sensitivity grid, 20/40/60d window check, additive move decomposition) | Evaluates baseline errors without auto-selecting a winner; exposes parameter sensitivity and `changed_from` overrides. |
 | **Signals Classifier** (`public/core.mjs`) | Rule-based bilingual keyword + negation regex matcher (`±35 bps` preset) | Keeps hypothetical headline exploration deterministic, fast, zero-cost, and inspectable. |
 | **Conversational Research Agent** (`lib/fx-chat.mjs`) | Native OpenAI function-calling loop (max 6 rounds) with tool-order & citation validation | Orchestrates chart plotting, model comparisons, and live Tavily web/news extraction only when needed. |
 
@@ -114,6 +114,7 @@ FX Warriors explicitly implements **all three** Responsible AI Practices emphasi
 
 Per the AI6101 Mini-Project handout:
 - **Length & Format**: No more than **10 pages** (A4, Arial 10pt, reasonable margins, including figures, tables, and references).
-- **Filename**: `<team name>-final-report.docx` (e.g., `FX-Warriors-final-report.docx`).
+- **Filename**: `<team name>-final-report.docx` (e.g., `FX-Warriors-final-report.docx`; PDF edition also tracked at `FX-Warriors-final-report.pdf`).
 - **Required Header Info**: Team name, all team members' names, and email addresses.
 - **Submission**: Email to `han.yu@ntu.edu.sg` by the end of Week 14.
+- **Verification**: Covered by 6 Node unit suites (`tests/core.test.mjs`, `tests/agent.test.mjs`, `tests/chat.test.mjs`, `tests/forecast-tool.test.mjs`, `tests/quota.test.mjs`, `tests/i18n.test.mjs`), 3 Playwright browser suites, and supplementary live smoke testing in [docs/agent-evaluation.md](agent-evaluation.md).

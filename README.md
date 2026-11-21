@@ -31,7 +31,7 @@ For each message, the server computes traditional FX outputs and injects them in
 
 | Tool | Result |
 | --- | --- |
-| `get_traditional_forecast` | Trusted numerical model output; optional currency/horizon changes |
+| `get_traditional_forecast` | Trusted numerical model output with optional pair/horizon changes, model selection (`shrunk_drift`, `no_change`, `mean_reversion`, `ensemble`), closed-form `include_path`, `±100 bps` sensitivity grid, 20/40/60-day `window_check`, additive move decomposition and 90-day spot percentile |
 | `show_fx_chart` | Interactive historical curve, optionally with an illustrative forecast and 80% interval |
 | `compare_traditional_models` | Shrunk drift, no-change and mean-reversion forecasts plus descriptive rolling MAE |
 | `search_web` | Query-specific Tavily web/news search with URLs, excerpts and available publication dates |
@@ -63,7 +63,7 @@ Fixed Fed/ECB feeds remain a supplementary tool. If those feeds fail, official R
 
 ## AI6101 Responsible AI alignment
 
-See [FX-Warriors-final-report.docx](FX-Warriors-final-report.docx) (coursework submission format, A4 Arial 10pt), [FX-Warriors-final-report.pdf](FX-Warriors-final-report.pdf) (6-page PDF preview), and [docs/AI6101-system-design.md](docs/AI6101-system-design.md) for the complete system design mapped to the AI6101 Introduction to AI and AI Ethics coursework specification across all three Responsible AI Practices:
+See [FX-Warriors-final-report.docx](FX-Warriors-final-report.docx) (coursework submission format, A4 Arial 10pt), [FX-Warriors-final-report.pdf](FX-Warriors-final-report.pdf) (6-page PDF preview), [docs/AI6101-system-design.md](docs/AI6101-system-design.md), and [docs/agent-evaluation.md](docs/agent-evaluation.md) (live smoke-test log) for the complete system design and evaluation mapped to the AI6101 Introduction to AI and AI Ethics coursework specification across all three Responsible AI Practices:
 
 1. **Explainability & interpretability**: closed-form projection formulas, rolling historical baseline comparison, inspectable tool calls, and inline `[sN]` provenance cards.
 2. **Fairness & equal access**: symmetric EUR cross-rate calculation across all six currencies, explicit disclosure of central-bank RSS coverage gaps, two-sided pair search guidance, and browser-adaptive English/Chinese parity.
@@ -86,6 +86,7 @@ Tests:
 node tests/core.test.mjs
 node tests/agent.test.mjs
 node tests/chat.test.mjs
+node tests/forecast-tool.test.mjs
 node tests/quota.test.mjs
 node tests/i18n.test.mjs
 node tests/browser.cjs
