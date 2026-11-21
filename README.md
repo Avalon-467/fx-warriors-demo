@@ -106,6 +106,20 @@ Browser tests use the workspace Playwright installation. Chat UI tests replay a 
 | `FX_SEARCH_API_KEY` | Yes, optional | Tavily API credential; omitted for keyless demo access |
 | `FX_MAX_DAILY_CALLS` | No | Shared UTC daily model-call cap, default 60 and maximum 120 |
 
+### Configuring the search credential
+
+`FX_SEARCH_API_KEY` is optional. Without it, the demo uses Tavily keyless access, which has shared provider limits.
+
+For local development, create a `.dev.vars` file in the project root (already covered by the `.env*` / `.dev.vars*` ignore rules):
+
+```text
+FX_SEARCH_API_KEY=your_tavily_key
+```
+
+For production, add `FX_SEARCH_API_KEY` as a Secret in Cloudflare Dashboard → Workers & Pages → Settings → Variables and Secrets, then redeploy.
+
+Never hardcode the key in source files, client assets, `wrangler.toml`, or committed configuration. Revoke and rotate the key immediately if it is exposed. Replacing the key requires no code change.
+
 The app also limits chat to twelve requests per visitor per UTC hour and sixty search/extraction calls per UTC day. D1 stores atomic counters with daily hashed caller identifiers, not conversations or reports. Requests count toward limits even if their provider subsequently fails. A provider call already started may still be charged after cancellation.
 
 Messages, recent conversation context and public numerical data go to the configured LLM. Research queries and selected source URLs go to Tavily. Saved budget names and amounts are not included. Hosting and model/search providers process request data under their own policies. No API keys are included in browser assets or source control.
